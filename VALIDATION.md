@@ -1,89 +1,117 @@
-# Validación — Focus Break Timer 0.2.0
+# Validación — Focus Break Timer 0.3.0
 
 Fecha: 2026-09-04
 
 ## Cambio solicitado
 
-La configuración del ciclo 30/5 deja de ser un detalle técnico y queda expuesta como una categoría propia dentro de **Preferencias > Opciones > Temporizador de enfoque** de NVDA.
+Se añadió una capa de comandos con entrada predeterminada **NVDA+Alt+E**:
 
-Controles incluidos:
+- **I**: iniciar o reiniciar el temporizador.
+- **D**: detenerlo.
+- **T**: informar fase, ciclo y tiempo restante.
+- **R**: activar o desactivar la repetición indefinida.
+- **O**: abrir directamente **Preferencias > Opciones > Temporizador de enfoque**.
 
-- **Duración del enfoque, en minutos**. Predeterminado: 30.
-- **Duración del descanso, en minutos**. Predeterminado: 5.
-- **Repetir los ciclos indefinidamente**. Predeterminado: marcado.
-- **Número de ciclos**. Se habilita únicamente cuando la repetición indefinida está desmarcada.
-- **Activar Input Lock durante el descanso**. Predeterminado: marcado.
-- **Anunciar tiempo restante cada N segundos**. 0 lo desactiva; predeterminado: 300.
-- **Reproducir sonidos al cambiar de período**. Predeterminado: marcado.
+La capa ejecuta una sola orden y luego restaura el gesto base. Una tecla no reconocida emite un tono y también cierra la capa.
 
-Los valores se guardan mediante `config.conf` de NVDA. El motor lee la configuración al iniciar o reiniciar el temporizador, por lo que una ejecución que ya está en curso conserva sus parámetros hasta el siguiente inicio/reinicio.
+## Patrón estudiado: Instant Translate
+
+Se revisó `nvdaaddons/instantTranslate`, archivo `addon/globalPlugins/instantTranslate/__init__.py`.
+
+El patrón observado usa:
+
+- un booleano de estado para saber si la capa está activa;
+- `getScript` para interceptar el siguiente gesto mientras la capa está activa;
+- `bindGestures` para enlazar temporalmente las letras de la capa;
+- `clearGestureBindings` al finalizar;
+- restauración del gesto de entrada;
+- tono ante una tecla no reconocida;
+- salida de la capa después de ejecutar un comando.
+
+Focus Break Timer adopta ese patrón de una sola orden, pero no copia la apertura de ajustes de Instant Translate. El código actual de Instant Translate todavía usa `_popupSettingsDialog`; la fuente actual de NVDA marca ese método como deprecado y ofrece `popupSettingsDialog`. Esta versión usa `gui.mainFrame.popupSettingsDialog(NVDASettingsDialog, FocusBreakSettingsPanel)` para abrir directamente la categoría del complemento.
+
+## Repetición con R
+
+La configuración histórica utiliza `cycles = 0` para repetición indefinida. Se añadió `finiteCycles` (predeterminado 4) para conservar el último número finito elegido.
+
+Comportamiento:
+
+- si la repetición está activada, **R** la desactiva y recupera `finiteCycles`;
+- si está desactivada, **R** guarda el número finito actual y activa repetición indefinida;
+- si el temporizador está corriendo, el motor cambia su objetivo sin reiniciar la fase actual;
+- si al desactivar la repetición el ciclo actual ya alcanzó/superó el objetivo finito guardado, se detiene al terminar el ciclo actual.
 
 ## Decisión de extensión
 
-**Global Plugin**. La función debe operar en cualquier aplicación mientras NVDA está activo. El motor de temporización permanece separado de la capa NVDA.
+**Global Plugin**. La funcionalidad opera en cualquier aplicación mientras NVDA está activo.
 
 ## Skill aplicada
 
-`nvda-addon-development` v1.6. Se aplicaron sus gates de Global Plugin, lógica pura separada, auditoría AST de gestos, pruebas, revisión de APIs, ciclo de vida y validación del paquete.
+`nvda-addon-development` v1.6.
 
-## Fuente oficial revisada
+## Fuente oficial NVDA revisada
 
-- La rama estable pública de NVDA al 2026-09-04 es 2026.2.
-- Se verificó el patrón actual de `SettingsPanel` / `NVDASettingsDialog` y se importa desde `gui.settingsDialogs`.
-- La interfaz del panel usa controles wx nativos y `guiHelper.BoxSizerHelper`, preservando etiquetas accesibles y navegación normal por Tab.
+- NVDA estable público: 2026.2 al 2026-09-04.
+- `gui.mainFrame.popupSettingsDialog` existe como API pública actual.
+- `_popupSettingsDialog` está deprecado.
+- `NVDASettingsDialog` admite una clase de panel inicial y selecciona esa categoría en su lista.
 
-## Compatibilidad del manifiesto
+## Auditoría de gestos
 
-- `minimumNVDAVersion = 2025.3.0`.
-- `lastTestedNVDAVersion = 2025.3.0` se conserva sin elevarlo por análisis estático.
-- La revisión contra fuentes actuales de NVDA 2026.2 no sustituye una prueba real dentro de NVDA.
-
-## Gestos
-
-El add-on no declara gestos predeterminados. Los cuatro scripts siguen disponibles para remapeo desde Gestos de entrada.
-
-Auditor `assets/nvda_gesture_audit.py` de la skill v1.6 ejecutado sobre `addon/` con contexto `global_plugin`:
+Auditor AST `assets/nvda_gesture_audit.py` de la skill v1.6 sobre `addon/`:
 
 - estado: `clean`;
-- bindings estáticos: 0;
-- colisiones contextuales: 0;
+- gesto base detectado: `kb:NVDA+alt+e` → `timerLayer`;
+- gestos temporales detectados: `i`, `d`, `t`, `r`, `o`;
+- colisiones internas: 0;
 - diagnósticos dinámicos/no parseables: 0;
-- runtime mapping: pendiente, porque no hay proceso NVDA vivo en este entorno.
+- runtime mapping: pendiente porque no hay proceso NVDA vivo en este entorno.
+
+No fue posible auditar los complementos **habilitados** ni los `gestures.ini` reales de la instalación Windows del usuario. Además, una búsqueda pública detectó que otros complementos publicados, como Date Parser e Invisinote, también anuncian **NVDA+Alt+E** como gesto predeterminado. El gesto se conserva porque fue solicitado explícitamente; si alguno de esos complementos estuviera habilitado, debe remapearse uno desde Gestos de entrada.
 
 ## Pruebas automatizadas
 
-Resultado: **18/18 OK** con `unittest`.
+Resultado: **29/29 OK**.
 
-Además de las pruebas anteriores del motor e Input Lock, se añadieron pruebas para:
+Incluyen:
 
-- valores predeterminados 30/5 visibles en el panel;
-- repetición indefinida marcada por defecto;
-- control de número de ciclos deshabilitado cuando la repetición es indefinida;
-- guardado de duraciones personalizadas;
-- guardado de número finito de ciclos;
-- persistencia de repetición indefinida como ciclo ilimitado;
-- activación/desactivación de Input Lock desde las opciones.
+- motor 30/5 y ciclos finitos/infinitos;
+- cambio del objetivo de repetición durante una ejecución;
+- entrada de la capa con NVDA+Alt+E;
+- I inicia y cierra la capa;
+- D detiene y cierra la capa;
+- T informa el tiempo;
+- R alterna repetición y conserva el último número finito;
+- R modifica el motor activo sin reiniciarlo;
+- O abre directamente `FocusBreakSettingsPanel`;
+- tecla desconocida sale de la capa;
+- panel de Opciones;
+- integración y propiedad segura de Input Lock.
 
 ## Sintaxis / paquete
 
 - `py_compile`: OK.
-- AST de Python empaquetado: OK.
+- AST de todos los Python empaquetados: OK.
+- Build por `build.py`: OK.
 - ZIP `.nvda-addon`: íntegro.
-- Entradas requeridas: OK.
-- Código Python empaquetado idéntico al código fuente usado para construir: OK.
-- SHA-256 del paquete: `6321cbf8f39b655659a8f436a16996a8b6ebde76b49b9ac0268ff1d5cf9265df`.
+- `manifest.ini` en la raíz: OK.
+- documentación declarada presente: OK.
+- código Python empaquetado idéntico al fuente de construcción: OK.
+- SHA-256 del paquete: `81bb4de99d49066bcb3e4ba16ba108c1cb2b31a3a6d9d689fe1d2c29bab8d976`.
 
-## Ciclo de vida
+## Compatibilidad
 
-El panel se registra sólo si aún no está registrado y `terminate()` lo elimina. El scheduler sigue usando una generación lógica de `core.callLater`; detener o terminar invalida callbacks anteriores. Si el temporizador posee un bloqueo de Input Lock, sólo intenta liberar ese bloqueo exacto.
+- `minimumNVDAVersion = 2025.3.0`.
+- `lastTestedNVDAVersion = 2025.3.0` se mantiene conservador.
+- La revisión estática contra NVDA 2026.2 no se presenta como prueba runtime.
 
 ## Pendiente en NVDA real
 
-1. Instalar la build 0.2.0 y reiniciar NVDA.
-2. Abrir **Preferencias > Opciones > Temporizador de enfoque**.
-3. Recorrer todos los controles con Tab y confirmar sus nombres/estados hablados.
-4. Probar, por ejemplo, 1 minuto de enfoque + 1 minuto de descanso + 2 ciclos.
-5. Probar repetición indefinida y verificar que **Número de ciclos** quede no disponible.
-6. Desmarcar **Activar Input Lock durante el descanso** y confirmar que los descansos no bloqueen la entrada.
-7. Volver a marcarla y repetir las pruebas de propiedad segura de Input Lock.
-8. Sólo después de la prueba real considerar elevar `lastTestedNVDAVersion`.
+1. Instalar la 0.3.0 y reiniciar NVDA.
+2. Pulsar NVDA+Alt+E y luego I; confirmar inicio.
+3. Pulsar NVDA+Alt+E y luego T; confirmar tiempo/fase/ciclo.
+4. Pulsar NVDA+Alt+E y luego R dos veces; confirmar mensajes de repetición desactivada/activada.
+5. Pulsar NVDA+Alt+E y luego O; confirmar que se abre directamente la categoría Temporizador de enfoque.
+6. Pulsar NVDA+Alt+E y luego D; confirmar detención.
+7. Probar una tecla no definida dentro de la capa; confirmar tono y salida.
+8. Ejecutar auditoría contra complementos habilitados y los mapas de gestos reales de esa instalación.

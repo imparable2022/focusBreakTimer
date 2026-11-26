@@ -4,9 +4,23 @@ Proyecto fuente del complemento `focusBreakTimer`.
 
 Convierte el script original de temporizador 30/5 en un Global Plugin de NVDA. No abre una consola ni ejecuta un Python externo. La lógica del temporizador está separada de la integración con NVDA en `focusBreakTimerCore.py` y dispone de pruebas unitarias.
 
-## Uso
+## Capa de comandos
 
-Después de instalar el `.nvda-addon` y reiniciar NVDA, abra **Preferencias > Gestos de entrada** y busque **Temporizador de enfoque**. El complemento no trae atajos predeterminados. Asigne los que prefiera a iniciar/reiniciar, pausar/reanudar, detener y consultar estado.
+El complemento usa una capa de comandos inspirada en el patrón de **Instant Translate**.
+
+Pulse **NVDA+Alt+E** y después una de estas teclas:
+
+- **I**: inicia o reinicia el temporizador.
+- **D**: detiene el temporizador.
+- **T**: informa la fase, el ciclo y el tiempo restante.
+- **R**: activa o desactiva la repetición indefinida.
+- **O**: abre directamente **Preferencias > Opciones > Temporizador de enfoque**.
+
+La capa termina después de ejecutar una orden. Una tecla no reconocida produce un tono de error y también cierra la capa. La entrada a la capa aparece en **Gestos de entrada > Temporizador de enfoque** y puede remapearse si fuera necesario.
+
+Al desactivar la repetición con **R**, se recupera el último número finito de ciclos configurado (4 por defecto). Si el temporizador ya está funcionando, el cambio se aplica inmediatamente. Al volver a activar la repetición, el ciclo pasa a ser indefinido sin reiniciar el período actual.
+
+## Configuración
 
 La configuración está en **Preferencias > Opciones > Temporizador de enfoque**. Allí se puede configurar:
 
@@ -28,6 +42,10 @@ El temporizador conserva como token de propiedad el objeto de gesto exacto que I
 
 ## Estado de validación
 
-Esta es una **compilación de prueba 0.2.0**. Se comprobaron el motor, la frontera de integración con Input Lock, sintaxis, estructura y paquete. No se ejecutó el complemento dentro de una instancia real de NVDA desde este entorno, por lo que la validación runtime/lifecycle sigue pendiente y no se considera lista para publicación en Add-on Store.
+Esta es una **compilación de prueba 0.3.0**. Se comprobaron el motor, la capa de comandos, la apertura directa de Opciones, la frontera de integración con Input Lock, sintaxis, estructura y paquete. No se ejecutó el complemento dentro de una instancia real de NVDA desde este entorno, por lo que la validación runtime/lifecycle sigue pendiente y no se considera lista para publicación en Add-on Store.
 
 El manifiesto mantiene de forma conservadora `lastTestedNVDAVersion = 2025.3.0`; no se eleva a 2026.2 sólo a partir de análisis estático.
+
+### Nota sobre NVDA+Alt+E
+
+El gesto se incluyó exactamente como fue solicitado. Existen otros complementos públicos que también pueden usar **NVDA+Alt+E**; por ejemplo Date Parser e Invisinote lo publican como gesto predeterminado. Si alguno de ellos está habilitado en la misma instalación, deberá remapearse uno de los comandos desde Gestos de entrada. La auditoría completa contra los complementos habilitados y `gestures.ini` reales debe hacerse dentro del NVDA del usuario.

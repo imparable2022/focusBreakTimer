@@ -48,6 +48,18 @@ class FocusBreakEngine:
         self._paused_from: Phase | None = None
         self._paused_remaining = 0.0
 
+    def set_cycles_target(self, cycles: int) -> None:
+        """Change the repetition target without resetting the current phase.
+
+        ``0`` means repeat indefinitely. A positive value is the total cycle count.
+        The caller is responsible for choosing a target that makes sense for the
+        current cycle; the engine will stop at the next completed break once the
+        current cycle reaches the target.
+        """
+        if cycles < 0:
+            raise ValueError("cycles cannot be negative")
+        self.cycles_target = int(cycles)
+
     def start(self, now: float) -> list[TimerEvent]:
         self.phase = Phase.FOCUS
         self.cycle = 1

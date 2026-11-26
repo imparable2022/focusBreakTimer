@@ -3,15 +3,18 @@
 <head><meta charset="utf-8"><title>Temporizador de enfoque y descanso</title></head>
 <body>
 <h1>Temporizador de enfoque y descanso</h1>
-<p>Complemento global de NVDA basado en un temporizador de enfoque/descanso. Por defecto utiliza 30 minutos de enfoque y 5 minutos de descanso.</p>
-<h2>Uso</h2>
-<p>Los comandos no traen gestos predeterminados para evitar colisiones con la configuración de cada usuario. Abra NVDA, Preferencias, Gestos de entrada y busque la categoría <strong>Temporizador de enfoque</strong>. Allí puede asignar teclas a:</p>
+<p>Complemento global de NVDA basado en un temporizador de enfoque/descanso. Por defecto utiliza 30 minutos de enfoque, 5 minutos de descanso y repetición indefinida.</p>
+<h2>Capa de comandos</h2>
+<p>Pulse <strong>NVDA+Alt+E</strong> y luego una tecla:</p>
 <ul>
-<li>Inicia o reinicia el temporizador de enfoque.</li>
-<li>Pausa o reanuda el temporizador de enfoque.</li>
-<li>Detiene el temporizador de enfoque.</li>
-<li>Informa el estado y el tiempo restante del temporizador.</li>
+<li><strong>I</strong>: iniciar o reiniciar el temporizador.</li>
+<li><strong>D</strong>: detener el temporizador.</li>
+<li><strong>T</strong>: informar la fase, el ciclo y el tiempo restante.</li>
+<li><strong>R</strong>: activar o desactivar la repetición indefinida.</li>
+<li><strong>O</strong>: abrir directamente las opciones del Temporizador de enfoque.</li>
 </ul>
+<p>La capa se cierra después de cada comando. Una tecla desconocida produce un tono de error y también cierra la capa.</p>
+<p>Al desactivar la repetición con R se utiliza el último número finito de ciclos configurado, 4 por defecto. El cambio se aplica también a una ejecución que ya esté en marcha.</p>
 <h2>Configuración</h2>
 <p>En <strong>Preferencias, Opciones, Temporizador de enfoque</strong> aparece una categoría propia del complemento. Allí se puede configurar:</p>
 <ul>
@@ -23,13 +26,13 @@
 <li>Intervalo de anuncios del tiempo restante.</li>
 <li>Reproducir sonidos al cambiar de período.</li>
 </ul>
-<p>Los valores predeterminados son 30 minutos de enfoque, 5 minutos de descanso y repetición indefinida. Los cambios se guardan en la configuración de NVDA y se aplican al iniciar o reiniciar el temporizador.</p>
+<p>Los cambios realizados en el panel se aplican al iniciar o reiniciar el temporizador.</p>
 <h2>Integración con Input Lock</h2>
 <p>Para bloquear la entrada durante el descanso se requiere el complemento Input Lock. Su comando “Toggle input lock” debe tener un gesto de teclado asignado. El temporizador detecta ese gesto y usa el propio complemento Input Lock, sin simular una combinación fija de Windows.</p>
 <p>El temporizador sólo intenta desactivar un bloqueo que él mismo haya iniciado. Si el usuario desbloquea manualmente durante un descanso, el temporizador abandona la propiedad del bloqueo y no vuelve a alternarlo al finalizar ese descanso.</p>
-<h2>Notas</h2>
-<p>Si Input Lock no está instalado, no está cargado o no tiene un gesto de teclado asignado, el temporizador continúa funcionando y anuncia el descanso, pero no bloquea la entrada.</p>
+<h2>Nota sobre NVDA+Alt+E</h2>
+<p>El gesto puede coincidir con otros complementos. Si existe una colisión en su instalación, remapee uno de los comandos desde Gestos de entrada.</p>
 <h2>Versión</h2>
-<p>Esta es la compilación de prueba 0.2.0. Consulte <a href="changelog.html">el registro de cambios</a>.</p>
+<p>Esta es la compilación de prueba 0.3.0. Consulte <a href="changelog.html">el registro de cambios</a>.</p>
 </body>
 </html>

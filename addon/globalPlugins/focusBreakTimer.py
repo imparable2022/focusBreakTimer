@@ -13,6 +13,7 @@ import inputCore
 import tones
 import ui
 import wx
+import gui
 from gui import guiHelper
 from gui.settingsDialogs import NVDASettingsDialog, SettingsPanel
 from keyboardHandler import KeyboardInputGesture
@@ -30,6 +31,7 @@ config.conf.spec[CONFIG_SECTION] = {
     "focusMinutes": "integer(default=30,min=1,max=1440)",
     "breakMinutes": "integer(default=5,min=1,max=1440)",
     "cycles": "integer(default=0,min=0,max=999)",
+    "finiteCycles": "integer(default=4,min=1,max=999)",
     "announceEverySeconds": "integer(default=300,min=0,max=86400)",
     "beeps": "boolean(default=true)",
     "lockDuringBreak": "boolean(default=true)",
@@ -203,6 +205,7 @@ class FocusBreakSettingsPanel(SettingsPanel):
         )
 
         storedCycles = int(conf["cycles"])
+        storedFiniteCycles = int(conf.get("finiteCycles", storedCycles if storedCycles > 0 else 4))
         self.repeatIndefinitely = helper.addItem(
             wx.CheckBox(self, label=_("&Repetir los ciclos indefinidamente"))
         )
@@ -214,7 +217,7 @@ class FocusBreakSettingsPanel(SettingsPanel):
             wx.SpinCtrl,
             min=1,
             max=999,
-            initial=storedCycles if storedCycles > 0 else 4,
+            initial=storedCycles if storedCycles > 0 else storedFiniteCycles,
         )
         self._updateCyclesControl()
 
@@ -257,7 +260,9 @@ class FocusBreakSettingsPanel(SettingsPanel):
         conf = config.conf[CONFIG_SECTION]
         conf["focusMinutes"] = self.focusMinutes.GetValue()
         conf["breakMinutes"] = self.breakMinutes.GetValue()
-        conf["cycles"] = 0 if self.repeatIndefinitely.GetValue() else self.cycles.GetValue()
+        finite_cycles = self.cycles.GetValue()
+        conf["finiteCycles"] = finite_cycles
+        conf["cycles"] = 0 if self.repeatIndefinitely.GetValue() else finite_cycles
         conf["lockDuringBreak"] = self.lockDuringBreak.GetValue()
         conf["announceEverySeconds"] = self.announceEverySeconds.GetValue()
         conf["beeps"] = self.beeps.GetValue()
@@ -274,8 +279,57 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self._inputLock = InputLockBridge()
         self._inputLockToken = None
         self._lastAnnouncedRemaining: Optional[int] = None
+        self._layerActive = False
+        self._bindBaseGesture()
         if FocusBreakSettingsPanel not in NVDASettingsDialog.categoryClasses:
             NVDASettingsDialog.categoryClasses.append(FocusBreakSettingsPanel)
+
+    def _bindBaseGesture(self):
+        self.bindGesture("kb:NVDA+alt+e", "timerLayer")
+
+    def getScript(self, gesture):
+        if not self._layerActive:
+            return globalPluginHandler.GlobalPlugin.getScript(self, gesture)
+        command = globalPluginHandler.GlobalPlugin.getScript(self, gesture)
+        if command is None:
+            command = self.script_layerError
+
+        def runAndFinish(innerGesture):
+            try:
+                return command(innerGesture)
+            finally:
+                self._finishCommandLayer()
+
+        return runAndFinish
+
+    def _finishCommandLayer(self):
+        self._layerActive = False
+        self.clearGestureBindings()
+        self._bindBaseGesture()
+
+    def script_layerError(self, gesture):
+        tones.beep(120, 100)
+
+    @script(
+        description=_(
+            "Activa la capa de comandos del temporizador: I iniciar, D detener, "
+            "T informar tiempo, R alternar repetición y O abrir opciones."
+        ),
+        category=CATEGORY,
+    )
+    def script_timerLayer(self, gesture):
+        if self._layerActive:
+            self.script_layerError(gesture)
+            return
+        self.bindGestures({
+            "kb:i": "startTimer",
+            "kb:d": "stopTimer",
+            "kb:t": "reportStatus",
+            "kb:r": "toggleRepeat",
+            "kb:o": "showSettings",
+        })
+        self._layerActive = True
+        tones.beep(100, 30)
 
     def terminate(self):
         try:
@@ -433,6 +487,45 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             return
         for event in self._engine.stop():
             self._processEvent(event)
+
+    @script(description=_("Activa o desactiva la repetición de ciclos"), category=CATEGORY)
+    def script_toggleRepeat(self, gesture):
+        conf = config.conf[CONFIG_SECTION]
+        current_cycles = int(conf["cycles"])
+        if current_cycles == 0:
+            finite_cycles = int(conf.get("finiteCycles", 4))
+            finite_cycles = max(1, finite_cycles)
+            conf["cycles"] = finite_cycles
+            if self._engine is not None and self._engine.phase != Phase.STOPPED:
+                self._engine.set_cycles_target(max(finite_cycles, self._engine.cycle))
+                if self._engine.cycle >= finite_cycles:
+                    ui.message(_("Repetición indefinida desactivada. El temporizador se detendrá al finalizar el ciclo actual."))
+                else:
+                    ui.message(
+                        _("Repetición indefinida desactivada. Se ejecutarán {cycles} ciclos.").format(
+                            cycles=finite_cycles
+                        )
+                    )
+            else:
+                ui.message(
+                    _("Repetición indefinida desactivada. Se ejecutarán {cycles} ciclos.").format(
+                        cycles=finite_cycles
+                    )
+                )
+        else:
+            conf["finiteCycles"] = current_cycles
+            conf["cycles"] = 0
+            if self._engine is not None and self._engine.phase != Phase.STOPPED:
+                self._engine.set_cycles_target(0)
+            ui.message(_("Repetición indefinida activada."))
+
+    @script(description=_("Abre las opciones del Temporizador de enfoque"), category=CATEGORY)
+    def script_showSettings(self, gesture):
+        wx.CallAfter(
+            gui.mainFrame.popupSettingsDialog,
+            NVDASettingsDialog,
+            FocusBreakSettingsPanel,
+        )
 
     @script(description=_("Informa el estado y el tiempo restante del temporizador"), category=CATEGORY)
     def script_reportStatus(self, gesture):

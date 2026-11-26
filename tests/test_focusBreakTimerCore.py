@@ -46,6 +46,28 @@ class FocusBreakEngineTests(unittest.TestCase):
         self.assertEqual(e.phase, Phase.FOCUS)
         self.assertEqual(e.remaining_seconds(102.0), 4)
 
+    def test_repetition_target_can_change_while_running(self):
+        e = FocusBreakEngine(10, 5, 0)
+        e.start(0.0)
+        e.set_cycles_target(2)
+        self.assertEqual(e.cycles_target, 2)
+        self.assertEqual([x.kind for x in e.tick(30.0)], [
+            "break_started", "break_finished", "focus_started", "break_started", "break_finished", "completed"
+        ])
+
+    def test_repetition_can_become_infinite_while_running(self):
+        e = FocusBreakEngine(10, 5, 1)
+        e.start(0.0)
+        e.set_cycles_target(0)
+        self.assertEqual([x.kind for x in e.tick(15.0)], ["break_started", "break_finished", "focus_started"])
+        self.assertEqual(e.phase, Phase.FOCUS)
+        self.assertEqual(e.cycle, 2)
+
+    def test_invalid_runtime_cycle_target(self):
+        e = FocusBreakEngine(10, 5, 0)
+        with self.assertRaises(ValueError):
+            e.set_cycles_target(-1)
+
     def test_stop_resets_state(self):
         e = FocusBreakEngine(10, 5)
         e.start(0.0)

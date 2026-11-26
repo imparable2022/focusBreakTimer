@@ -25,6 +25,7 @@ def install_stubs():
                 "focusMinutes": 30,
                 "breakMinutes": 5,
                 "cycles": 0,
+                "finiteCycles": 4,
                 "announceEverySeconds": 300,
                 "beeps": True,
                 "lockDuringBreak": True,
@@ -39,8 +40,19 @@ def install_stubs():
 
     globalPluginHandler = types.ModuleType("globalPluginHandler")
     class BaseGlobalPlugin:
-        def __init__(self): pass
+        def __init__(self):
+            self._gestureMap = dict(getattr(self, "_GlobalPlugin__gestures", {}))
         def terminate(self): pass
+        def bindGesture(self, gesture, scriptName):
+            self._gestureMap[gesture] = scriptName
+        def bindGestures(self, gestures):
+            self._gestureMap.update(gestures)
+        def clearGestureBindings(self):
+            self._gestureMap.clear()
+        def getScript(self, gesture):
+            identifier = getattr(gesture, "identifier", None)
+            scriptName = self._gestureMap.get(identifier)
+            return getattr(self, f"script_{scriptName}", None) if scriptName else None
     globalPluginHandler.GlobalPlugin = BaseGlobalPlugin
     globalPluginHandler.runningPlugins = []
     sys.modules["globalPluginHandler"] = globalPluginHandler
@@ -57,7 +69,8 @@ def install_stubs():
     sys.modules["tones"] = tones
 
     ui = types.ModuleType("ui")
-    ui.message = lambda *a, **k: None
+    ui.messages = []
+    ui.message = lambda message, *a, **k: ui.messages.append(message)
     sys.modules["ui"] = ui
 
     wx = types.ModuleType("wx")
@@ -74,6 +87,7 @@ def install_stubs():
     wx.CheckBox = Dummy
     wx.StaticText = Dummy
     wx.EVT_CHECKBOX = object()
+    wx.CallAfter = lambda func, *a, **k: func(*a, **k)
     sys.modules["wx"] = wx
 
     gui = types.ModuleType("gui")
@@ -81,7 +95,13 @@ def install_stubs():
         def __init__(self, *a, **k): pass
         def addLabeledControl(self, label, controlClass, **kwargs): return controlClass(**kwargs)
         def addItem(self, x): return x
+    class MainFrame:
+        def __init__(self):
+            self.settingsCalls = []
+        def popupSettingsDialog(self, dialogClass, initialCategory=None):
+            self.settingsCalls.append((dialogClass, initialCategory))
     gui.guiHelper = types.SimpleNamespace(BoxSizerHelper=BoxSizerHelper)
+    gui.mainFrame = MainFrame()
     sys.modules["gui"] = gui
 
     settingsDialogs = types.ModuleType("gui.settingsDialogs")
@@ -97,6 +117,7 @@ def install_stubs():
         def __init__(self, name):
             self.name = name
             self.displayName = name
+            self.identifier = name if name.startswith("kb:") else f"kb:{name}"
     class KeyboardInputGesture:
         @classmethod
         def fromName(cls, name): return Gesture(name)
@@ -224,6 +245,7 @@ class GlobalPluginInputLockOwnershipTests(unittest.TestCase):
         INPUT_CORE.manager.mappings = {
             "Input": {"Toggle input lock": Info(FakeInputLock, ["kb:NVDA+alt+t"])}
         }
+        sys.modules["config"].conf["focusBreakTimer"]["lockDuringBreak"] = True
         self.timer = mod.GlobalPlugin()
 
     def tearDown(self):
@@ -267,6 +289,7 @@ class SettingsPanelTests(unittest.TestCase):
             "focusMinutes": 30,
             "breakMinutes": 5,
             "cycles": 0,
+            "finiteCycles": 4,
             "announceEverySeconds": 300,
             "beeps": True,
             "lockDuringBreak": True,
@@ -332,3 +355,90 @@ class GlobalPluginSettingsBehaviorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CommandLayerTests(unittest.TestCase):
+    def setUp(self):
+        self.conf = sys.modules["config"].conf["focusBreakTimer"]
+        self.conf.update({
+            "focusMinutes": 30,
+            "breakMinutes": 5,
+            "cycles": 0,
+            "finiteCycles": 4,
+            "announceEverySeconds": 300,
+            "beeps": True,
+            "lockDuringBreak": False,
+        })
+        sys.modules["ui"].messages.clear()
+        sys.modules["gui"].mainFrame.settingsCalls.clear()
+        self.timer = mod.GlobalPlugin()
+
+    def tearDown(self):
+        self.timer.terminate()
+
+    def _gesture(self, identifier):
+        gesture = mod.KeyboardInputGesture.fromName(identifier.split(":", 1)[-1])
+        gesture.identifier = identifier
+        return gesture
+
+    def test_default_entry_gesture_is_nvda_alt_e(self):
+        script = self.timer.getScript(self._gesture("kb:NVDA+alt+e"))
+        self.assertIsNotNone(script)
+        self.assertEqual(script.__name__, "script_timerLayer")
+
+    def test_i_starts_timer_and_layer_exits(self):
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.assertTrue(self.timer._layerActive)
+        command = self.timer.getScript(self._gesture("kb:i"))
+        command(self._gesture("kb:i"))
+        self.assertFalse(self.timer._layerActive)
+        self.assertIsNotNone(self.timer._engine)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
+        self.assertEqual(set(self.timer._gestureMap), {"kb:NVDA+alt+e"})
+
+    def test_d_stops_timer(self):
+        self.timer.script_startTimer(None)
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.timer.getScript(self._gesture("kb:d"))(self._gesture("kb:d"))
+        self.assertEqual(self.timer._engine.phase, mod.Phase.STOPPED)
+        self.assertFalse(self.timer._layerActive)
+
+    def test_t_reports_current_time(self):
+        self.timer.script_startTimer(None)
+        sys.modules["ui"].messages.clear()
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.timer.getScript(self._gesture("kb:t"))(self._gesture("kb:t"))
+        self.assertTrue(any("Quedan" in message for message in sys.modules["ui"].messages))
+
+    def test_r_toggles_repetition_and_preserves_finite_cycle_count(self):
+        self.assertEqual(self.conf["cycles"], 0)
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.timer.getScript(self._gesture("kb:r"))(self._gesture("kb:r"))
+        self.assertEqual(self.conf["cycles"], 4)
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.timer.getScript(self._gesture("kb:r"))(self._gesture("kb:r"))
+        self.assertEqual(self.conf["cycles"], 0)
+        self.assertEqual(self.conf["finiteCycles"], 4)
+
+    def test_r_changes_running_engine_immediately(self):
+        self.timer.script_startTimer(None)
+        self.assertEqual(self.timer._engine.cycles_target, 0)
+        self.timer.script_toggleRepeat(None)
+        self.assertEqual(self.timer._engine.cycles_target, 4)
+        self.timer.script_toggleRepeat(None)
+        self.assertEqual(self.timer._engine.cycles_target, 0)
+
+    def test_o_opens_focus_break_timer_settings_directly(self):
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.timer.getScript(self._gesture("kb:o"))(self._gesture("kb:o"))
+        calls = sys.modules["gui"].mainFrame.settingsCalls
+        self.assertEqual(calls[-1], (mod.NVDASettingsDialog, mod.FocusBreakSettingsPanel))
+        self.assertFalse(self.timer._layerActive)
+
+    def test_unknown_layer_key_beeps_and_exits(self):
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        command = self.timer.getScript(self._gesture("kb:x"))
+        self.assertIsNotNone(command)
+        command(self._gesture("kb:x"))
+        self.assertFalse(self.timer._layerActive)
+        self.assertEqual(set(self.timer._gestureMap), {"kb:NVDA+alt+e"})

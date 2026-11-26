@@ -1,5 +1,18 @@
 # Cambios
 
+## 0.3.0 — capa de comandos
+
+- Nuevo gesto predeterminado **NVDA+Alt+E** para activar la capa del complemento.
+- **I** inicia o reinicia el temporizador.
+- **D** detiene el temporizador.
+- **T** informa el estado y el tiempo restante.
+- **R** activa o desactiva la repetición indefinida y aplica el cambio al temporizador en curso.
+- **O** abre directamente la categoría **Temporizador de enfoque** en las Opciones de NVDA.
+- La capa se cierra después de una orden; una tecla desconocida produce un tono y también sale de la capa.
+- Se conserva el último número finito de ciclos para que `R` pueda alternar entre repetición indefinida y una configuración finita sin perder ese valor.
+- La apertura de Opciones usa `gui.mainFrame.popupSettingsDialog`, API pública actual de NVDA, en lugar de `_popupSettingsDialog` deprecada que todavía aparece en Instant Translate.
+- Añadidas pruebas específicas de la capa y del cambio de repetición en caliente.
+
 ## 0.2.0 — configuración completa en Opciones de NVDA
 
 - La categoría **Temporizador de enfoque** expone la configuración principal directamente en Preferencias > Opciones de NVDA.

@@ -1,57 +1,64 @@
 # Focus Break Timer para NVDA
 
-Proyecto fuente del complemento `focusBreakTimer`.
+**Focus Break Timer** es un complemento para NVDA que desarrollé desde cero con la idea de poder organizar mejor los tiempos de estudio o de trabajo, alternando momentos de concentración con descansos.
 
-Convierte el script original de temporizador 30/5 en un Global Plugin de NVDA. No abre una consola ni ejecuta un Python externo. La lógica del temporizador está separada de la integración con NVDA en `focusBreakTimerCore.py` y dispone de pruebas unitarias.
+Por ejemplo, si estás estudiando, podés configurar el complemento para que te avise cuando hayan pasado 30 minutos, descanses durante 5 minutos y después vuelvas a estudiar otros 30 minutos. Todo esto se puede hacer de forma automática y sin tener que salir del programa que estés usando.
 
-## Capa de comandos
+El complemento está escrito en Python, funciona directamente desde NVDA y ha sido probado con el lector de pantalla.
 
-El complemento usa una capa de comandos inspirada en el patrón de **Instant Translate**.
+## ¿Qué podés hacer con este complemento?
 
-Pulse **NVDA+Alt+E** y después una de estas teclas:
+- **Elegir tus tiempos:** Podés configurar cuántos minutos querés dedicar a concentrarte y cuántos querés descansar.
+- **Repetir los ciclos:** Podés elegir cuántas veces querés repetirlos o hacer que se repitan hasta que decidas detener el temporizador.
+- **Consultar el tiempo restante:** Podés hacerlo cuando quieras o configurar NVDA para que te lo anuncie cada cierta cantidad de minutos.
+- **Recibir avisos:** NVDA te avisa cuando termina el tiempo de concentración o de descanso. También podés activar los avisos sonoros.
+- **Bloquear el teclado durante los descansos:** Si tenés instalado Input Lock, podés hacer que el complemento bloquee el teclado durante el descanso y lo desbloquee cuando sea momento de continuar.
+- **Iniciar el temporizador automáticamente:** Si querés, podés hacer que comience cada vez que iniciás NVDA.
+- **Elegir un horario de suspensión:** Por ejemplo, podés hacer que el temporizador deje de funcionar a las 22:00 y continúe a las 06:00 del día siguiente, sin perder el tiempo que te quedaba.
 
-- **I**: inicia el temporizador.
-- **Shift+I**: reinicia el temporizador desde el comienzo.
-- **D**: detiene el temporizador.
-- **T**: informa la fase, el ciclo y el tiempo restante.
-- **R**: activa o desactiva la repetición indefinida.
-- **O**: abre directamente **Preferencias > Opciones > Temporizador de enfoque**.
+## Cómo usarlo
 
-La capa termina después de ejecutar una orden. Una tecla no reconocida produce un tono de error y también cierra la capa. La entrada a la capa aparece en **Gestos de entrada > Temporizador de enfoque** y puede remapearse si fuera necesario.
+Presioná **NVDA+Alt+E** y después una de estas teclas, según lo que quieras hacer:
 
-Al desactivar la repetición con **R**, se recupera el último número finito de ciclos configurado (4 por defecto). Si el temporizador ya está funcionando, el cambio se aplica inmediatamente. Al volver a activar la repetición, el ciclo pasa a ser indefinido sin reiniciar el período actual.
+- **I:** iniciar el temporizador.
+- **Shift+I:** reiniciar el temporizador desde el principio.
+- **D:** detenerlo.
+- **T:** escuchar en qué período estás, el ciclo actual y cuánto tiempo queda.
+- **R:** activar o desactivar la repetición indefinida.
+- **O:** abrir las opciones del complemento.
 
-## Configuración
+Después de ejecutar un comando vas a poder seguir usando el teclado normalmente. Si presionás una tecla que no corresponde a ningún comando, vas a escuchar un sonido y también vas a salir de la capa de comandos.
 
-La configuración está en **Preferencias > Opciones > Temporizador de enfoque**. Allí se puede configurar:
+Si otro complemento utiliza NVDA+Alt+E, podés cambiar este atajo desde **Preferencias > Gestos de entrada > Temporizador de enfoque**.
 
-- duración del enfoque, en minutos;
-- duración del descanso, en minutos;
-- repetir los ciclos indefinidamente;
-- o, si la repetición indefinida está desactivada, el número exacto de ciclos;
-- activar o no Input Lock durante el descanso;
-- casilla para anunciar automáticamente el tiempo restante;
-- intervalo entre esos anuncios, expresado en minutos;
-- sonidos al cambiar entre enfoque y descanso;
-- iniciar el temporizador automáticamente al iniciar NVDA;
-- suspender automáticamente el temporizador dentro de un horario configurable.
+## Cómo configurarlo
 
-Los valores predeterminados siguen siendo **30 minutos de enfoque, 5 minutos de descanso y repetición indefinida**. El inicio automático con NVDA está desactivado por defecto. El horario de suspensión también está desactivado por defecto, pero sus horas iniciales son **22:00 → 06:00** para que sólo sea necesario marcar la casilla si se desea ese horario.
+Desde **Preferencias > Opciones > Temporizador de enfoque**, o presionando NVDA+Alt+E y después O, vas a poder cambiar todas las opciones.
 
-Cuando el horario de suspensión está activado, al entrar en la franja el complemento pausa el ciclo y libera únicamente un bloqueo de Input Lock que él mismo haya iniciado. Al salir de la franja reanuda el mismo punto del temporizador. Si NVDA arranca dentro de la franja y está marcada la opción de inicio automático, el inicio queda pendiente hasta la hora de reanudación. Los horarios que cruzan medianoche, como 22:00 → 06:00, están soportados.
+Por defecto, el complemento viene configurado con 30 minutos de concentración, 5 minutos de descanso y repetición indefinida. El inicio automático y la suspensión por horario están desactivados.
 
-## Input Lock
+Si desactivás la repetición indefinida, se recupera la cantidad de ciclos que hayas configurado anteriormente (4 por defecto). Podés cambiar esta opción incluso mientras el temporizador está funcionando, sin tener que empezar de nuevo.
 
-La integración es opcional y se diseñó contra Input Lock 26.1. El comando **Toggle input lock** de Input Lock debe tener un gesto de teclado asignado. Focus Break Timer localiza ese gesto en los mapeos de NVDA y llama al propio script de Input Lock; no simula CapsLock+Alt+T ni presupone cuál es la tecla NVDA.
+## Cómo descargarlo
 
-El temporizador conserva como token de propiedad el objeto de gesto exacto que Input Lock almacena al bloquear. Si el usuario desbloquea o desbloquea y vuelve a bloquear manualmente, ese token deja de coincidir y Focus Break Timer no modifica el nuevo bloqueo.
+Podés consultar las versiones del complemento en [GitHub Releases](https://github.com/imparable2022/focusBreakTimer/releases) y las compilaciones automáticas en [GitHub Actions](https://github.com/imparable2022/focusBreakTimer/actions).
 
-## Estado de validación
+## Sobre Input Lock
 
-Esta es una **compilación de prueba 0.4.0**. El usuario confirmó que la rama 0.3.x funciona en su NVDA real. Para 0.4.0 se añadieron pruebas de inicio automático, suspensión horaria, cruce de medianoche, liberación segura de Input Lock y reanudación. Estas dos funciones nuevas todavía deben probarse en el NVDA real antes de considerarlas validadas en runtime o listas para publicación en Add-on Store.
+No necesitás tener Input Lock instalado para usar el temporizador. Es una opción más para quienes quieran dejar de usar el teclado durante sus descansos.
 
-El manifiesto mantiene de forma conservadora `lastTestedNVDAVersion = 2025.3.0`; no se eleva a 2026.2 sólo a partir de análisis estático.
+Si querés usar esta función, necesitás tener asignado un atajo al comando de bloqueo de Input Lock. El temporizador detecta ese comando automáticamente. Si bloqueás el teclado por tu cuenta, el complemento no va a quitar ese bloqueo como si lo hubiera iniciado él.
 
-### Nota sobre NVDA+Alt+E
+## Para programadores
 
-El gesto se incluyó exactamente como fue solicitado. Existen otros complementos públicos que también pueden usar **NVDA+Alt+E**; por ejemplo Date Parser e Invisinote lo publican como gesto predeterminado. Si alguno de ellos está habilitado en la misma instalación, deberá remapearse uno de los comandos desde Gestos de entrada. La auditoría completa contra los complementos habilitados y `gestures.ini` reales debe hacerse dentro del NVDA del usuario.
+La lógica del temporizador está separada de la integración con NVDA en `focusBreakTimerCore.py`. El proyecto dispone de pruebas unitarias y de un flujo de GitHub Actions para probar y empaquetar el complemento en Windows.
+
+La integración con Input Lock se desarrolló tomando como referencia la versión 26.1. La capa de comandos utiliza un patrón inspirado en Instant Translate.
+
+## Versiones y pruebas
+
+La versión actual es la 0.4.0. Las versiones 0.3.x fueron probadas con NVDA y la versión 0.4.0 cuenta con 46 pruebas automatizadas superadas. El inicio automático y la suspensión por horario incorporados en esta última versión todavía requieren una comprobación específica con NVDA antes de considerarlos completamente validados.
+
+Podés consultar los cambios de cada versión en el [historial de cambios](changelog.md).
+
+Si el complemento te sirve o tenés alguna sugerencia sobre algo que te gustaría que le agregue, podés dejarme un mensaje en la sección de [Issues](https://github.com/imparable2022/focusBreakTimer/issues).

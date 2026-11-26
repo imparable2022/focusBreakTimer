@@ -32,6 +32,7 @@ config.conf.spec[CONFIG_SECTION] = {
     "breakMinutes": "integer(default=5,min=1,max=1440)",
     "cycles": "integer(default=0,min=0,max=999)",
     "finiteCycles": "integer(default=4,min=1,max=999)",
+    "announceRemaining": "boolean(default=false)",
     "announceEverySeconds": "integer(default=300,min=0,max=86400)",
     "beeps": "boolean(default=true)",
     "lockDuringBreak": "boolean(default=true)",
@@ -226,13 +227,22 @@ class FocusBreakSettingsPanel(SettingsPanel):
         )
         self.lockDuringBreak.SetValue(bool(conf["lockDuringBreak"]))
 
-        self.announceEverySeconds = helper.addLabeledControl(
-            _("Anunciar tiempo restante cada N &segundos (0 = desactivado):"),
-            wx.SpinCtrl,
-            min=0,
-            max=86400,
-            initial=int(conf["announceEverySeconds"]),
+        self.announceRemaining = helper.addItem(
+            wx.CheckBox(self, label=_("&Anunciar automáticamente el tiempo restante"))
         )
+        self.announceRemaining.SetValue(bool(conf["announceRemaining"]))
+        self.announceRemaining.Bind(wx.EVT_CHECKBOX, self._onAnnounceRemainingChanged)
+
+        storedAnnounceEverySeconds = int(conf["announceEverySeconds"])
+        storedAnnounceEveryMinutes = max(1, round(storedAnnounceEverySeconds / 60))
+        self.announceEveryMinutes = helper.addLabeledControl(
+            _("Anunciar tiempo restante cada, en &minutos:"),
+            wx.SpinCtrl,
+            min=1,
+            max=1440,
+            initial=storedAnnounceEveryMinutes,
+        )
+        self._updateAnnounceControl()
         self.beeps = helper.addItem(
             wx.CheckBox(self, label=_("Reproducir &sonidos al cambiar de período"))
         )
@@ -256,6 +266,13 @@ class FocusBreakSettingsPanel(SettingsPanel):
     def _updateCyclesControl(self):
         self.cycles.Enable(not self.repeatIndefinitely.GetValue())
 
+    def _onAnnounceRemainingChanged(self, evt):
+        self._updateAnnounceControl()
+        evt.Skip()
+
+    def _updateAnnounceControl(self):
+        self.announceEveryMinutes.Enable(self.announceRemaining.GetValue())
+
     def onSave(self):
         conf = config.conf[CONFIG_SECTION]
         conf["focusMinutes"] = self.focusMinutes.GetValue()
@@ -264,7 +281,8 @@ class FocusBreakSettingsPanel(SettingsPanel):
         conf["finiteCycles"] = finite_cycles
         conf["cycles"] = 0 if self.repeatIndefinitely.GetValue() else finite_cycles
         conf["lockDuringBreak"] = self.lockDuringBreak.GetValue()
-        conf["announceEverySeconds"] = self.announceEverySeconds.GetValue()
+        conf["announceRemaining"] = self.announceRemaining.GetValue()
+        conf["announceEverySeconds"] = self.announceEveryMinutes.GetValue() * 60
         conf["beeps"] = self.beeps.GetValue()
 
 
@@ -451,8 +469,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             self._stopTimerLoop()
             return
 
+        announce_remaining = bool(config.conf[CONFIG_SECTION]["announceRemaining"])
         announce_every = int(config.conf[CONFIG_SECTION]["announceEverySeconds"])
-        if announce_every > 0 and self._engine.phase != Phase.PAUSED:
+        if announce_remaining and announce_every > 0 and self._engine.phase != Phase.PAUSED:
             remaining = self._engine.remaining_seconds(now)
             if remaining > 0 and remaining % announce_every == 0 and remaining != self._lastAnnouncedRemaining:
                 label = _("Enfoque") if self._engine.phase == Phase.FOCUS else _("Descanso")

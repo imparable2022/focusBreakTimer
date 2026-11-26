@@ -30,7 +30,8 @@ La configuración está en **Preferencias > Opciones > Temporizador de enfoque**
 - repetir los ciclos indefinidamente;
 - o, si la repetición indefinida está desactivada, el número exacto de ciclos;
 - activar o no Input Lock durante el descanso;
-- intervalo de anuncios del tiempo restante;
+- casilla para anunciar automáticamente el tiempo restante;
+- intervalo entre esos anuncios, expresado en minutos;
 - sonidos al cambiar entre enfoque y descanso.
 
 Los valores predeterminados siguen siendo **30 minutos de enfoque, 5 minutos de descanso y repetición indefinida**. Los cambios se guardan en la configuración de NVDA y se aplican al iniciar o reiniciar el temporizador.
@@ -43,7 +44,7 @@ El temporizador conserva como token de propiedad el objeto de gesto exacto que I
 
 ## Estado de validación
 
-Esta es una **compilación de prueba 0.3.1**. Se comprobaron el motor, la capa de comandos, la apertura directa de Opciones, la frontera de integración con Input Lock, sintaxis, estructura y paquete. No se ejecutó el complemento dentro de una instancia real de NVDA desde este entorno, por lo que la validación runtime/lifecycle sigue pendiente y no se considera lista para publicación en Add-on Store.
+Esta es una **compilación de prueba 0.3.2**. El usuario confirmó que la versión 0.3.1 funciona en su NVDA real. Para 0.3.2 se comprobaron de forma automatizada el motor, la capa de comandos, el nuevo control de anuncios, la apertura directa de Opciones, la integración con Input Lock, sintaxis, estructura y paquete. El cambio específico de 0.3.2 todavía debe probarse en el NVDA real antes de considerarlo validado en runtime o listo para publicación en Add-on Store.
 
 El manifiesto mantiene de forma conservadora `lastTestedNVDAVersion = 2025.3.0`; no se eleva a 2026.2 sólo a partir de análisis estático.
 

@@ -1,3 +1,12 @@
+# 0.3.2
+
+- Nueva casilla **Anunciar automáticamente el tiempo restante**, desactivada por defecto.
+- El intervalo de anuncios se mantiene configurable, pero ahora se muestra en **minutos** en lugar de segundos.
+- El valor predeterminado visible del intervalo es **5 minutos**.
+- Cuando los anuncios automáticos están desactivados, el control del intervalo queda deshabilitado.
+- Se conserva compatibilidad con valores guardados por versiones anteriores: por ejemplo, 300 segundos se presentan como 5 minutos.
+- El comando **NVDA+Alt+E, T** sigue informando el tiempo restante aunque los anuncios automáticos estén desactivados.
+
 # 0.3.1
 
 - La capa separa iniciar y reiniciar: **I** inicia el temporizador y **Shift+I** lo reinicia desde el comienzo.

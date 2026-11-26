@@ -26,6 +26,7 @@ def install_stubs():
                 "breakMinutes": 5,
                 "cycles": 0,
                 "finiteCycles": 4,
+                "announceRemaining": False,
                 "announceEverySeconds": 300,
                 "beeps": True,
                 "lockDuringBreak": True,
@@ -290,6 +291,7 @@ class SettingsPanelTests(unittest.TestCase):
             "breakMinutes": 5,
             "cycles": 0,
             "finiteCycles": 4,
+            "announceRemaining": False,
             "announceEverySeconds": 300,
             "beeps": True,
             "lockDuringBreak": True,
@@ -304,6 +306,15 @@ class SettingsPanelTests(unittest.TestCase):
         self.assertTrue(self.panel.repeatIndefinitely.GetValue())
         self.assertFalse(self.panel.cycles.enabled)
         self.assertTrue(self.panel.lockDuringBreak.GetValue())
+        self.assertFalse(self.panel.announceRemaining.GetValue())
+        self.assertEqual(self.panel.announceEveryMinutes.GetValue(), 5)
+        self.assertFalse(self.panel.announceEveryMinutes.enabled)
+
+    def test_stored_seconds_are_presented_as_minutes(self):
+        self.conf["announceEverySeconds"] = 600
+        panel = mod.FocusBreakSettingsPanel()
+        panel.makeSettings(object())
+        self.assertEqual(panel.announceEveryMinutes.GetValue(), 10)
 
     def test_finite_cycle_configuration_is_saved(self):
         self.panel.focusMinutes.SetValue(45)
@@ -312,13 +323,16 @@ class SettingsPanelTests(unittest.TestCase):
         self.panel._updateCyclesControl()
         self.panel.cycles.SetValue(3)
         self.panel.lockDuringBreak.SetValue(False)
-        self.panel.announceEverySeconds.SetValue(600)
+        self.panel.announceRemaining.SetValue(True)
+        self.panel._updateAnnounceControl()
+        self.panel.announceEveryMinutes.SetValue(10)
         self.panel.beeps.SetValue(False)
         self.panel.onSave()
         self.assertEqual(self.conf["focusMinutes"], 45)
         self.assertEqual(self.conf["breakMinutes"], 10)
         self.assertEqual(self.conf["cycles"], 3)
         self.assertFalse(self.conf["lockDuringBreak"])
+        self.assertTrue(self.conf["announceRemaining"])
         self.assertEqual(self.conf["announceEverySeconds"], 600)
         self.assertFalse(self.conf["beeps"])
         self.assertTrue(self.panel.cycles.enabled)
@@ -328,6 +342,13 @@ class SettingsPanelTests(unittest.TestCase):
         self.panel.cycles.SetValue(7)
         self.panel.onSave()
         self.assertEqual(self.conf["cycles"], 0)
+
+    def test_automatic_remaining_announcements_can_be_enabled(self):
+        self.panel.announceRemaining.SetValue(True)
+        self.panel._updateAnnounceControl()
+        self.assertTrue(self.panel.announceEveryMinutes.enabled)
+        self.panel.onSave()
+        self.assertTrue(self.conf["announceRemaining"])
 
 
 class GlobalPluginSettingsBehaviorTests(unittest.TestCase):
@@ -352,6 +373,31 @@ class GlobalPluginSettingsBehaviorTests(unittest.TestCase):
         self.assertFalse(self.inputLock.locked)
         self.assertIsNone(self.timer._inputLockToken)
 
+    def _install_fake_running_engine(self, remaining=300):
+        self.timer._loopActive = True
+        self.timer._loopGeneration = 7
+        self.timer._engine = types.SimpleNamespace(
+            phase=mod.Phase.FOCUS,
+            tick=lambda now: [],
+            remaining_seconds=lambda now: remaining,
+        )
+
+    def test_automatic_remaining_announcement_is_suppressed_when_disabled(self):
+        self.conf["announceRemaining"] = False
+        self.conf["announceEverySeconds"] = 300
+        sys.modules["ui"].messages.clear()
+        self._install_fake_running_engine(300)
+        self.timer._onTimer(7)
+        self.assertFalse(any("Enfoque: quedan" in message for message in sys.modules["ui"].messages))
+
+    def test_automatic_remaining_announcement_is_spoken_when_enabled(self):
+        self.conf["announceRemaining"] = True
+        self.conf["announceEverySeconds"] = 300
+        sys.modules["ui"].messages.clear()
+        self._install_fake_running_engine(300)
+        self.timer._onTimer(7)
+        self.assertTrue(any("Enfoque: quedan 5 minutos" in message for message in sys.modules["ui"].messages))
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -365,6 +411,7 @@ class CommandLayerTests(unittest.TestCase):
             "breakMinutes": 5,
             "cycles": 0,
             "finiteCycles": 4,
+            "announceRemaining": False,
             "announceEverySeconds": 300,
             "beeps": True,
             "lockDuringBreak": False,

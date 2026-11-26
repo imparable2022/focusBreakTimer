@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Cambios - Temporizador de enfoque y descanso</title></head>
+<body>
+<h1>Cambios</h1>
+<h2>0.2.0 - configuración completa en Opciones de NVDA</h2>
+<ul>
+<li>Categoría propia <strong>Temporizador de enfoque</strong> en Preferencias, Opciones.</li>
+<li>Duración del enfoque y del descanso configurables en minutos.</li>
+<li>Casilla para repetir los ciclos indefinidamente y control para indicar un número finito de ciclos.</li>
+<li>Casilla para activar o desactivar Input Lock durante el descanso.</li>
+<li>Se mantienen configurables los anuncios periódicos y los sonidos.</li>
+<li>Valores predeterminados: 30 minutos de enfoque, 5 minutos de descanso y repetición indefinida.</li>
+<li>Pruebas automatizadas ampliadas para cubrir el panel de opciones.</li>
+</ul>
+<h2>0.1.0 - compilación de prueba</h2>
+<ul>
+<li>Primera conversión del script independiente a Global Plugin de NVDA.</li>
+<li>Motor de enfoque/descanso independiente de NVDA y probado unitariamente.</li>
+<li>Configuración de enfoque, descanso, ciclos, anuncios periódicos y sonidos.</li>
+<li>Comandos remapeables desde Gestos de entrada, sin atajos predeterminados.</li>
+<li>Integración opcional con Input Lock que detecta el gesto configurado por el usuario.</li>
+<li>Propiedad segura del bloqueo mediante el objeto de gesto exacto: el temporizador no desactiva un bloqueo manual posterior.</li>
+<li>Planificación con <code>core.callLater</code>, sin consola ni proceso Python externo.</li>
+</ul>
+</body>
+</html>

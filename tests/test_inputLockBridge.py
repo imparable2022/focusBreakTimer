@@ -396,6 +396,29 @@ class CommandLayerTests(unittest.TestCase):
         self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
         self.assertEqual(set(self.timer._gestureMap), {"kb:NVDA+alt+e"})
 
+
+    def test_i_does_not_restart_running_timer(self):
+        self.timer.script_startTimer(None)
+        original_engine = self.timer._engine
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        self.timer.getScript(self._gesture("kb:i"))(self._gesture("kb:i"))
+        self.assertIs(self.timer._engine, original_engine)
+        self.assertTrue(any("Shift+I" in message for message in sys.modules["ui"].messages))
+        self.assertFalse(self.timer._layerActive)
+
+    def test_shift_i_restarts_running_timer_and_layer_exits(self):
+        self.timer.script_startTimer(None)
+        original_engine = self.timer._engine
+        self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))
+        command = self.timer.getScript(self._gesture("kb:shift+i"))
+        self.assertIsNotNone(command)
+        command(self._gesture("kb:shift+i"))
+        self.assertIsNot(self.timer._engine, original_engine)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
+        self.assertEqual(self.timer._engine.cycle, 1)
+        self.assertFalse(self.timer._layerActive)
+        self.assertEqual(set(self.timer._gestureMap), {"kb:NVDA+alt+e"})
+
     def test_d_stops_timer(self):
         self.timer.script_startTimer(None)
         self.timer.script_timerLayer(self._gesture("kb:NVDA+alt+e"))

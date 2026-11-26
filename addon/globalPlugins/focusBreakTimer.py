@@ -312,8 +312,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     @script(
         description=_(
-            "Activa la capa de comandos del temporizador: I iniciar, D detener, "
-            "T informar tiempo, R alternar repetición y O abrir opciones."
+            "Activa la capa de comandos del temporizador: I iniciar, Shift+I reiniciar, "
+            "D detener, T informar tiempo, R alternar repetición y O abrir opciones."
         ),
         category=CATEGORY,
     )
@@ -323,6 +323,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             return
         self.bindGestures({
             "kb:i": "startTimer",
+            "kb:shift+i": "restartTimer",
             "kb:d": "stopTimer",
             "kb:t": "reportStatus",
             "kb:r": "toggleRepeat",
@@ -461,13 +462,24 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         if self._loopActive and generation == self._loopGeneration:
             core.callLater(500, self._onTimer, generation)
 
-    @script(description=_("Inicia o reinicia el temporizador de enfoque"), category=CATEGORY)
-    def script_startTimer(self, gesture):
+    def _startFreshTimer(self):
         self._releaseOwnedInputLock()
+        self._stopTimerLoop()
         self._engine = self._newEngine()
         for event in self._engine.start(time.monotonic()):
             self._processEvent(event)
         self._startTimerLoop()
+
+    @script(description=_("Inicia el temporizador de enfoque"), category=CATEGORY)
+    def script_startTimer(self, gesture):
+        if self._engine is not None and self._engine.phase != Phase.STOPPED:
+            ui.message(_("El temporizador ya está en ejecución. Use Shift+I en la capa para reiniciarlo."))
+            return
+        self._startFreshTimer()
+
+    @script(description=_("Reinicia el temporizador de enfoque desde el comienzo"), category=CATEGORY)
+    def script_restartTimer(self, gesture):
+        self._startFreshTimer()
 
     @script(description=_("Pausa o reanuda el temporizador de enfoque"), category=CATEGORY)
     def script_pauseResume(self, gesture):

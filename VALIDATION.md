@@ -1,4 +1,4 @@
-# Validación — Focus Break Timer 0.3.0
+# Validación — Focus Break Timer 0.3.1
 
 Fecha: 2026-09-04
 
@@ -71,7 +71,7 @@ No fue posible auditar los complementos **habilitados** ni los `gestures.ini` re
 
 ## Pruebas automatizadas
 
-Resultado: **29/29 OK**.
+Resultado: **31/31 OK**.
 
 Incluyen:
 
@@ -107,7 +107,7 @@ Incluyen:
 
 ## Pendiente en NVDA real
 
-1. Instalar la 0.3.0 y reiniciar NVDA.
+1. Instalar la 0.3.1 y reiniciar NVDA.
 2. Pulsar NVDA+Alt+E y luego I; confirmar inicio.
 3. Pulsar NVDA+Alt+E y luego T; confirmar tiempo/fase/ciclo.
 4. Pulsar NVDA+Alt+E y luego R dos veces; confirmar mensajes de repetición desactivada/activada.
@@ -115,3 +115,11 @@ Incluyen:
 6. Pulsar NVDA+Alt+E y luego D; confirmar detención.
 7. Probar una tecla no definida dentro de la capa; confirmar tono y salida.
 8. Ejecutar auditoría contra complementos habilitados y los mapas de gestos reales de esa instalación.
+
+## Cambio 0.3.1: iniciar y reiniciar separados
+
+- **I** inicia el temporizador únicamente cuando está detenido.
+- Si **I** se usa durante una ejecución activa, el motor no se reemplaza y NVDA indica que se utilice **Shift+I** para reiniciar.
+- **Shift+I** reinicia desde el comienzo creando una nueva ejecución en fase de enfoque, ciclo 1.
+- La capa sigue cerrándose después de cualquiera de estos comandos.
+- Suite automatizada: **31/31** pruebas correctas.

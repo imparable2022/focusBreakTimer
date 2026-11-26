@@ -1,3 +1,8 @@
+# 0.3.1
+
+- La capa separa iniciar y reiniciar: **I** inicia el temporizador y **Shift+I** lo reinicia desde el comienzo.
+- Si se pulsa **I** mientras el temporizador ya está activo, no se reinicia accidentalmente y NVDA indica que se use **Shift+I** para reiniciar.
+
 # Cambios
 
 ## 0.3.0 — capa de comandos

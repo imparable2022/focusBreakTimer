@@ -10,7 +10,8 @@ El complemento usa una capa de comandos inspirada en el patrón de **Instant Tra
 
 Pulse **NVDA+Alt+E** y después una de estas teclas:
 
-- **I**: inicia o reinicia el temporizador.
+- **I**: inicia el temporizador.
+- **Shift+I**: reinicia el temporizador desde el comienzo.
 - **D**: detiene el temporizador.
 - **T**: informa la fase, el ciclo y el tiempo restante.
 - **R**: activa o desactiva la repetición indefinida.
@@ -42,7 +43,7 @@ El temporizador conserva como token de propiedad el objeto de gesto exacto que I
 
 ## Estado de validación
 
-Esta es una **compilación de prueba 0.3.0**. Se comprobaron el motor, la capa de comandos, la apertura directa de Opciones, la frontera de integración con Input Lock, sintaxis, estructura y paquete. No se ejecutó el complemento dentro de una instancia real de NVDA desde este entorno, por lo que la validación runtime/lifecycle sigue pendiente y no se considera lista para publicación en Add-on Store.
+Esta es una **compilación de prueba 0.3.1**. Se comprobaron el motor, la capa de comandos, la apertura directa de Opciones, la frontera de integración con Input Lock, sintaxis, estructura y paquete. No se ejecutó el complemento dentro de una instancia real de NVDA desde este entorno, por lo que la validación runtime/lifecycle sigue pendiente y no se considera lista para publicación en Add-on Store.
 
 El manifiesto mantiene de forma conservadora `lastTestedNVDAVersion = 2025.3.0`; no se eleva a 2026.2 sólo a partir de análisis estático.
 

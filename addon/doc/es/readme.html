@@ -27,14 +27,18 @@
 <li>Casilla para anunciar automáticamente el tiempo restante, desactivada por defecto.</li>
 <li>Intervalo entre anuncios del tiempo restante, expresado en minutos (5 minutos por defecto).</li>
 <li>Reproducir sonidos al cambiar de período.</li>
+<li>Iniciar el temporizador automáticamente al iniciar NVDA.</li>
+<li>Suspender automáticamente el temporizador dentro de un horario configurable.</li>
 </ul>
-<p>Los cambios realizados en el panel se aplican al iniciar o reiniciar el temporizador.</p>
+<p>El inicio automático con NVDA está desactivado por defecto. El horario de suspensión también está desactivado por defecto y viene preparado con 22:00 como hora de inicio y 06:00 como hora de reanudación.</p>
+<p>Cuando el horario está activado, al entrar en la franja el ciclo se pausa y el complemento libera sólo el bloqueo de Input Lock que él mismo hubiera iniciado. Al salir de la franja reanuda el mismo punto. Si NVDA arranca dentro de la franja con inicio automático activado, el temporizador espera hasta la hora de reanudación para comenzar. Las franjas que cruzan medianoche están soportadas.</p>
+<p>Los cambios de duración y ciclos se aplican al iniciar o reiniciar el temporizador. El horario se aplica automáticamente tras guardar.</p>
 <h2>Integración con Input Lock</h2>
 <p>Para bloquear la entrada durante el descanso se requiere el complemento Input Lock. Su comando “Toggle input lock” debe tener un gesto de teclado asignado. El temporizador detecta ese gesto y usa el propio complemento Input Lock, sin simular una combinación fija de Windows.</p>
 <p>El temporizador sólo intenta desactivar un bloqueo que él mismo haya iniciado. Si el usuario desbloquea manualmente durante un descanso, el temporizador abandona la propiedad del bloqueo y no vuelve a alternarlo al finalizar ese descanso.</p>
 <h2>Nota sobre NVDA+Alt+E</h2>
 <p>El gesto puede coincidir con otros complementos. Si existe una colisión en su instalación, remapee uno de los comandos desde Gestos de entrada.</p>
 <h2>Versión</h2>
-<p>Esta es la compilación de prueba 0.3.2. Consulte <a href="changelog.html">el registro de cambios</a>.</p>
+<p>Esta es la compilación de prueba 0.4.0. Consulte <a href="changelog.html">el registro de cambios</a>.</p>
 </body>
 </html>

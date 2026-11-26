@@ -32,9 +32,13 @@ La configuración está en **Preferencias > Opciones > Temporizador de enfoque**
 - activar o no Input Lock durante el descanso;
 - casilla para anunciar automáticamente el tiempo restante;
 - intervalo entre esos anuncios, expresado en minutos;
-- sonidos al cambiar entre enfoque y descanso.
+- sonidos al cambiar entre enfoque y descanso;
+- iniciar el temporizador automáticamente al iniciar NVDA;
+- suspender automáticamente el temporizador dentro de un horario configurable.
 
-Los valores predeterminados siguen siendo **30 minutos de enfoque, 5 minutos de descanso y repetición indefinida**. Los cambios se guardan en la configuración de NVDA y se aplican al iniciar o reiniciar el temporizador.
+Los valores predeterminados siguen siendo **30 minutos de enfoque, 5 minutos de descanso y repetición indefinida**. El inicio automático con NVDA está desactivado por defecto. El horario de suspensión también está desactivado por defecto, pero sus horas iniciales son **22:00 → 06:00** para que sólo sea necesario marcar la casilla si se desea ese horario.
+
+Cuando el horario de suspensión está activado, al entrar en la franja el complemento pausa el ciclo y libera únicamente un bloqueo de Input Lock que él mismo haya iniciado. Al salir de la franja reanuda el mismo punto del temporizador. Si NVDA arranca dentro de la franja y está marcada la opción de inicio automático, el inicio queda pendiente hasta la hora de reanudación. Los horarios que cruzan medianoche, como 22:00 → 06:00, están soportados.
 
 ## Input Lock
 
@@ -44,7 +48,7 @@ El temporizador conserva como token de propiedad el objeto de gesto exacto que I
 
 ## Estado de validación
 
-Esta es una **compilación de prueba 0.3.2**. El usuario confirmó que la versión 0.3.1 funciona en su NVDA real. Para 0.3.2 se comprobaron de forma automatizada el motor, la capa de comandos, el nuevo control de anuncios, la apertura directa de Opciones, la integración con Input Lock, sintaxis, estructura y paquete. El cambio específico de 0.3.2 todavía debe probarse en el NVDA real antes de considerarlo validado en runtime o listo para publicación en Add-on Store.
+Esta es una **compilación de prueba 0.4.0**. El usuario confirmó que la rama 0.3.x funciona en su NVDA real. Para 0.4.0 se añadieron pruebas de inicio automático, suspensión horaria, cruce de medianoche, liberación segura de Input Lock y reanudación. Estas dos funciones nuevas todavía deben probarse en el NVDA real antes de considerarlas validadas en runtime o listas para publicación en Add-on Store.
 
 El manifiesto mantiene de forma conservadora `lastTestedNVDAVersion = 2025.3.0`; no se eleva a 2026.2 sólo a partir de análisis estático.
 

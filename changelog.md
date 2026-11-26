@@ -1,3 +1,15 @@
+# 0.4.0
+
+- Nueva casilla **Iniciar el temporizador al iniciar NVDA**, desactivada por defecto.
+- Nuevo **horario de suspensión** opcional, también desactivado por defecto.
+- Valores iniciales del horario: **22:00 → 06:00**.
+- El horario admite franjas que cruzan medianoche.
+- Al comenzar la franja, un temporizador activo se pausa y se libera únicamente el bloqueo de Input Lock propiedad del complemento.
+- Al terminar la franja, el mismo ciclo se reanuda desde el tiempo restante que tenía.
+- Si NVDA se inicia dentro de la franja con inicio automático activado, el temporizador espera hasta el final de la suspensión para comenzar.
+- Iniciar o reiniciar manualmente durante la franja queda bloqueado con un aviso de la hora de reanudación.
+- El comando de estado informa cuando el inicio está pendiente o el temporizador está suspendido por horario.
+
 # 0.3.2
 
 - Nueva casilla **Anunciar automáticamente el tiempo restante**, desactivada por defecto.

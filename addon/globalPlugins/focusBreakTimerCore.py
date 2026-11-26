@@ -31,6 +31,32 @@ class TimerSnapshot:
     paused_from: Phase | None
 
 
+def minutes_from_hm(hour: int, minute: int) -> int:
+    """Convert a 24-hour clock value to minutes since midnight."""
+    if not 0 <= int(hour) <= 23:
+        raise ValueError("hour must be between 0 and 23")
+    if not 0 <= int(minute) <= 59:
+        raise ValueError("minute must be between 0 and 59")
+    return int(hour) * 60 + int(minute)
+
+
+def is_minute_in_daily_window(current_minute: int, start_minute: int, end_minute: int) -> bool:
+    """Return whether a local clock minute falls in a half-open daily window.
+
+    ``start == end`` means the schedule is disabled for the whole day (zero-length
+    window), not a 24-hour suspension. Windows that cross midnight are supported,
+    e.g. 22:00 -> 06:00.
+    """
+    current = int(current_minute) % (24 * 60)
+    start = int(start_minute) % (24 * 60)
+    end = int(end_minute) % (24 * 60)
+    if start == end:
+        return False
+    if start < end:
+        return start <= current < end
+    return current >= start or current < end
+
+
 class FocusBreakEngine:
     """Deterministic state machine driven by a monotonic clock supplied by the caller."""
 

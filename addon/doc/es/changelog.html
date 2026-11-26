@@ -3,6 +3,16 @@
 <head><meta charset="utf-8"><title>Cambios - Temporizador de enfoque y descanso</title></head>
 <body>
 <h1>Cambios</h1>
+<h2>0.4.0 - inicio automático y horario de suspensión</h2>
+<ul>
+<li>Nueva opción para iniciar el temporizador al iniciar NVDA, desactivada por defecto.</li>
+<li>Nuevo horario de suspensión opcional, desactivado por defecto, con 22:00 → 06:00 como valores iniciales.</li>
+<li>Se admiten horarios que cruzan medianoche.</li>
+<li>Al entrar en la franja, el ciclo se pausa y se libera de forma segura cualquier bloqueo de Input Lock iniciado por el temporizador.</li>
+<li>Al salir de la franja se reanuda el mismo punto del ciclo.</li>
+<li>Si NVDA arranca dentro del horario con inicio automático activado, el inicio se difiere hasta la hora de reanudación.</li>
+</ul>
+
 <h2>0.3.2 - anuncios automáticos configurables</h2>
 <ul>
 <li>Nueva casilla para anunciar automáticamente el tiempo restante, desactivada por defecto.</li>

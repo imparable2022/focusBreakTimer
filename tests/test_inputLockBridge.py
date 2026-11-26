@@ -30,6 +30,10 @@ def install_stubs():
                 "announceEverySeconds": 300,
                 "beeps": True,
                 "lockDuringBreak": True,
+                "startOnNVDA": False,
+                "suspendScheduleEnabled": False,
+                "suspendFromMinutes": 22 * 60,
+                "suspendUntilMinutes": 6 * 60,
             }
     config = types.ModuleType("config")
     config.conf = Conf()
@@ -295,6 +299,10 @@ class SettingsPanelTests(unittest.TestCase):
             "announceEverySeconds": 300,
             "beeps": True,
             "lockDuringBreak": True,
+            "startOnNVDA": False,
+            "suspendScheduleEnabled": False,
+            "suspendFromMinutes": 22 * 60,
+            "suspendUntilMinutes": 6 * 60,
         })
         self.conf = conf
         self.panel = mod.FocusBreakSettingsPanel()
@@ -309,6 +317,14 @@ class SettingsPanelTests(unittest.TestCase):
         self.assertFalse(self.panel.announceRemaining.GetValue())
         self.assertEqual(self.panel.announceEveryMinutes.GetValue(), 5)
         self.assertFalse(self.panel.announceEveryMinutes.enabled)
+        self.assertFalse(self.panel.startOnNVDA.GetValue())
+        self.assertFalse(self.panel.suspendScheduleEnabled.GetValue())
+        self.assertEqual(self.panel.suspendFromHour.GetValue(), 22)
+        self.assertEqual(self.panel.suspendFromMinute.GetValue(), 0)
+        self.assertEqual(self.panel.suspendUntilHour.GetValue(), 6)
+        self.assertEqual(self.panel.suspendUntilMinute.GetValue(), 0)
+        self.assertFalse(self.panel.suspendFromHour.enabled)
+        self.assertFalse(self.panel.suspendUntilHour.enabled)
 
     def test_stored_seconds_are_presented_as_minutes(self):
         self.conf["announceEverySeconds"] = 600
@@ -327,6 +343,13 @@ class SettingsPanelTests(unittest.TestCase):
         self.panel._updateAnnounceControl()
         self.panel.announceEveryMinutes.SetValue(10)
         self.panel.beeps.SetValue(False)
+        self.panel.startOnNVDA.SetValue(True)
+        self.panel.suspendScheduleEnabled.SetValue(True)
+        self.panel._updateSuspendScheduleControls()
+        self.panel.suspendFromHour.SetValue(22)
+        self.panel.suspendFromMinute.SetValue(30)
+        self.panel.suspendUntilHour.SetValue(6)
+        self.panel.suspendUntilMinute.SetValue(15)
         self.panel.onSave()
         self.assertEqual(self.conf["focusMinutes"], 45)
         self.assertEqual(self.conf["breakMinutes"], 10)
@@ -335,6 +358,10 @@ class SettingsPanelTests(unittest.TestCase):
         self.assertTrue(self.conf["announceRemaining"])
         self.assertEqual(self.conf["announceEverySeconds"], 600)
         self.assertFalse(self.conf["beeps"])
+        self.assertTrue(self.conf["startOnNVDA"])
+        self.assertTrue(self.conf["suspendScheduleEnabled"])
+        self.assertEqual(self.conf["suspendFromMinutes"], 22 * 60 + 30)
+        self.assertEqual(self.conf["suspendUntilMinutes"], 6 * 60 + 15)
         self.assertTrue(self.panel.cycles.enabled)
 
     def test_repeat_indefinitely_is_stored_as_zero_cycles(self):
@@ -349,6 +376,16 @@ class SettingsPanelTests(unittest.TestCase):
         self.assertTrue(self.panel.announceEveryMinutes.enabled)
         self.panel.onSave()
         self.assertTrue(self.conf["announceRemaining"])
+
+
+    def test_schedule_controls_enable_with_checkbox(self):
+        self.panel.suspendScheduleEnabled.SetValue(True)
+        self.panel._updateSuspendScheduleControls()
+        self.assertTrue(self.panel.suspendFromHour.enabled)
+        self.assertTrue(self.panel.suspendFromMinute.enabled)
+        self.assertTrue(self.panel.suspendUntilHour.enabled)
+        self.assertTrue(self.panel.suspendUntilMinute.enabled)
+
 
 
 class GlobalPluginSettingsBehaviorTests(unittest.TestCase):
@@ -399,6 +436,105 @@ class GlobalPluginSettingsBehaviorTests(unittest.TestCase):
         self.assertTrue(any("Enfoque: quedan 5 minutos" in message for message in sys.modules["ui"].messages))
 
 
+class ScheduleBehaviorTests(unittest.TestCase):
+    def setUp(self):
+        self.conf = sys.modules["config"].conf["focusBreakTimer"]
+        self.conf.update({
+            "focusMinutes": 30,
+            "breakMinutes": 5,
+            "cycles": 0,
+            "finiteCycles": 4,
+            "announceRemaining": False,
+            "announceEverySeconds": 300,
+            "beeps": True,
+            "lockDuringBreak": True,
+            "startOnNVDA": False,
+            "suspendScheduleEnabled": True,
+            "suspendFromMinutes": 22 * 60,
+            "suspendUntilMinutes": 6 * 60,
+        })
+        self.original_clock = mod._local_minutes_now
+        sys.modules["ui"].messages.clear()
+        self.inputLock = FakeInputLock()
+        GLOBAL_HANDLER.runningPlugins[:] = [self.inputLock]
+        INPUT_CORE.manager.mappings = {
+            "Input": {"Toggle input lock": Info(FakeInputLock, ["kb:NVDA+alt+t"])}
+        }
+        self.timer = mod.GlobalPlugin()
+
+    def tearDown(self):
+        mod._local_minutes_now = self.original_clock
+        self.timer.terminate()
+        GLOBAL_HANDLER.runningPlugins[:] = []
+        self.conf["suspendScheduleEnabled"] = False
+        self.conf["startOnNVDA"] = False
+
+    def test_manual_start_is_blocked_during_suspension_window(self):
+        mod._local_minutes_now = lambda: 23 * 60
+        self.timer.script_startTimer(None)
+        self.assertTrue(self.timer._engine is None or self.timer._engine.phase == mod.Phase.STOPPED)
+        self.assertTrue(any("06:00" in message for message in sys.modules["ui"].messages))
+
+    def test_running_timer_pauses_at_schedule_and_resumes_after(self):
+        mod._local_minutes_now = lambda: 21 * 60
+        self.timer.script_startTimer(None)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
+        mod._local_minutes_now = lambda: 22 * 60
+        self.timer._applyScheduleState()
+        self.assertTrue(self.timer._pausedBySchedule)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.PAUSED)
+        mod._local_minutes_now = lambda: 6 * 60
+        self.timer._applyScheduleState()
+        self.assertFalse(self.timer._pausedBySchedule)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
+
+    def test_break_lock_is_released_when_schedule_begins(self):
+        mod._local_minutes_now = lambda: 21 * 60
+        self.timer.script_startTimer(None)
+        self.timer._engine.phase = mod.Phase.BREAK
+        self.timer._engine._deadline = 999999999.0
+        self.timer._beginBreakLock()
+        self.assertTrue(self.inputLock.locked)
+        mod._local_minutes_now = lambda: 22 * 60
+        self.timer._applyScheduleState()
+        self.assertFalse(self.inputLock.locked)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.PAUSED)
+
+    def test_start_on_nvda_waits_until_schedule_ends(self):
+        self.timer.terminate()
+        mod._local_minutes_now = lambda: 23 * 60
+        self.conf["startOnNVDA"] = True
+        self.timer = mod.GlobalPlugin()
+        self.timer._applyScheduleState()
+        self.assertTrue(self.timer._pendingStartupStart)
+        self.assertIsNone(self.timer._engine)
+        mod._local_minutes_now = lambda: 6 * 60
+        self.timer._applyScheduleState()
+        self.assertFalse(self.timer._pendingStartupStart)
+        self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
+
+    def test_start_on_nvda_starts_when_outside_schedule(self):
+        self.timer.terminate()
+        mod._local_minutes_now = lambda: 12 * 60
+        self.conf["startOnNVDA"] = True
+        self.timer = mod.GlobalPlugin()
+        self.timer._applyScheduleState()
+        self.assertEqual(self.timer._engine.phase, mod.Phase.FOCUS)
+
+    def test_stop_cancels_deferred_startup(self):
+        self.timer.terminate()
+        mod._local_minutes_now = lambda: 23 * 60
+        self.conf["startOnNVDA"] = True
+        self.timer = mod.GlobalPlugin()
+        self.assertTrue(self.timer._pendingStartupStart)
+        self.timer.script_stopTimer(None)
+        self.assertFalse(self.timer._pendingStartupStart)
+        mod._local_minutes_now = lambda: 6 * 60
+        self.timer._applyScheduleState()
+        self.assertIsNone(self.timer._engine)
+
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -415,6 +551,10 @@ class CommandLayerTests(unittest.TestCase):
             "announceEverySeconds": 300,
             "beeps": True,
             "lockDuringBreak": False,
+            "startOnNVDA": False,
+            "suspendScheduleEnabled": False,
+            "suspendFromMinutes": 22 * 60,
+            "suspendUntilMinutes": 6 * 60,
         })
         sys.modules["ui"].messages.clear()
         sys.modules["gui"].mainFrame.settingsCalls.clear()

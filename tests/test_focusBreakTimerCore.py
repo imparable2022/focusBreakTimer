@@ -84,5 +84,32 @@ class FocusBreakEngineTests(unittest.TestCase):
             FocusBreakEngine(5, 5, -1)
 
 
+class DailyScheduleTests(unittest.TestCase):
+    def test_cross_midnight_window_22_to_06(self):
+        start = mod.minutes_from_hm(22, 0)
+        end = mod.minutes_from_hm(6, 0)
+        self.assertFalse(mod.is_minute_in_daily_window(mod.minutes_from_hm(21, 59), start, end))
+        self.assertTrue(mod.is_minute_in_daily_window(mod.minutes_from_hm(22, 0), start, end))
+        self.assertTrue(mod.is_minute_in_daily_window(mod.minutes_from_hm(23, 30), start, end))
+        self.assertTrue(mod.is_minute_in_daily_window(mod.minutes_from_hm(5, 59), start, end))
+        self.assertFalse(mod.is_minute_in_daily_window(mod.minutes_from_hm(6, 0), start, end))
+
+    def test_daytime_window(self):
+        start = mod.minutes_from_hm(9, 0)
+        end = mod.minutes_from_hm(17, 0)
+        self.assertTrue(mod.is_minute_in_daily_window(mod.minutes_from_hm(12, 0), start, end))
+        self.assertFalse(mod.is_minute_in_daily_window(mod.minutes_from_hm(18, 0), start, end))
+
+    def test_equal_times_are_zero_length_window(self):
+        start = mod.minutes_from_hm(22, 0)
+        self.assertFalse(mod.is_minute_in_daily_window(start, start, start))
+
+    def test_invalid_clock_values(self):
+        with self.assertRaises(ValueError):
+            mod.minutes_from_hm(24, 0)
+        with self.assertRaises(ValueError):
+            mod.minutes_from_hm(22, 60)
+
+
 if __name__ == "__main__":
     unittest.main()

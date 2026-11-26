@@ -1,64 +1,86 @@
-# Validación — Focus Break Timer 0.3.2
+# Validación — Focus Break Timer 0.4.0
 
 Fecha: 2026-09-04
 
-## Cambio solicitado
+## Cambios solicitados
 
-La configuración de anuncios periódicos queda formada por dos controles en **Preferencias > Opciones > Temporizador de enfoque**:
+Se añadieron dos opciones a **Preferencias > Opciones > Temporizador de enfoque**:
 
-- **Anunciar automáticamente el tiempo restante**: casilla desactivada por defecto.
-- **Anunciar tiempo restante cada, en minutos**: control numérico, 5 minutos por defecto.
+- **Iniciar el temporizador al iniciar NVDA**: desactivada por defecto.
+- **Suspender el temporizador automáticamente en un horario**: desactivada por defecto.
 
-Cuando la casilla está desmarcada, el control de intervalo queda deshabilitado y no se producen anuncios automáticos como “Enfoque: quedan 30 minutos”. El comando bajo demanda **NVDA+Alt+E, T** permanece independiente y sigue informando fase, ciclo y tiempo restante.
+El horario viene precargado con:
 
-## Compatibilidad de configuración
+- desde **22:00**;
+- hasta **06:00**.
 
-El almacenamiento histórico `announceEverySeconds` se conserva internamente para no romper preferencias existentes. La interfaz convierte el valor a minutos al mostrarlo y vuelve a segundos al guardarlo. Ejemplo validado: 600 segundos existentes se presentan como 10 minutos.
+Los controles de hora y minutos quedan deshabilitados mientras la casilla del horario esté desmarcada.
 
-## Decisión de extensión
+## Semántica del horario
 
-**Global Plugin**, sin cambios respecto de 0.3.1.
+La franja es una suspensión del temporizador, no un cambio de duración:
+
+- admite cruce de medianoche (`22:00 -> 06:00`);
+- al entrar en la franja, si el temporizador está en enfoque o descanso, se pausa conservando el tiempo restante;
+- si el complemento había activado Input Lock durante un descanso, libera únicamente ese bloqueo propio antes de quedar suspendido;
+- un bloqueo manual del usuario nunca se reclama ni se libera;
+- al salir de la franja, el mismo ciclo se reanuda desde el punto conservado;
+- iniciar o reiniciar manualmente dentro de la franja se rechaza y NVDA informa la hora de reanudación;
+- si NVDA arranca dentro de la franja con inicio automático activado, el inicio queda pendiente hasta el final de la suspensión;
+- detener manualmente cancela un inicio automático pendiente.
+
+## Diseño
+
+Se mantiene el **Global Plugin**. La lógica pura para determinar si una hora cae dentro de una franja diaria se añadió a `focusBreakTimerCore.py`, separada de la capa NVDA.
+
+La vigilancia horaria se realiza con `core.callLater`. El bucle normal del temporizador también comprueba el horario antes de avanzar de fase, evitando que en el límite de las 22:00 llegue a iniciar un descanso/bloqueo justo antes de que actúe el vigilante horario.
 
 ## Skill aplicada
 
 `nvda-addon-development` v1.6.
 
-## Gestos
-
-No se modificaron gestos respecto de 0.3.1. El auditor AST de la skill v1.6 sobre `addon/` informa `clean` y reconoce:
-
-- `NVDA+Alt+E` para entrar a la capa;
-- `I`, `Shift+I`, `D`, `T`, `R` y `O` dentro de la capa.
-
-La auditoría completa contra complementos habilitados y `gestures.ini` reales sólo puede completarse dentro de la instalación NVDA del usuario.
-
 ## Pruebas automatizadas
 
-Resultado: **35/35 OK**.
+Resultado: **46/46 OK**.
 
-Incluyen, además de las pruebas existentes:
+Incluyen:
 
-- casilla de anuncios automáticos desactivada por defecto;
-- intervalo visible de 5 minutos por defecto;
-- control de intervalo deshabilitado cuando la casilla está desmarcada;
-- habilitación del intervalo al marcar la casilla;
-- guardado de 10 minutos como 600 segundos para compatibilidad;
-- conversión de 600 segundos existentes a 10 minutos visibles;
-- supresión del anuncio automático cuando la casilla está desactivada;
-- emisión del anuncio automático cuando está activada.
+- franja normal diurna;
+- franja cruzando medianoche 22:00 -> 06:00;
+- límites exactos: 22:00 incluido, 06:00 excluido;
+- configuración predeterminada desactivada con 22:00 y 06:00 precargados;
+- habilitación/deshabilitación accesible de los controles horarios;
+- persistencia de horas y minutos;
+- bloqueo de inicio manual dentro de la franja;
+- pausa al entrar y reanudación al salir;
+- liberación segura de Input Lock al comenzar la suspensión;
+- inicio automático inmediato fuera de la franja;
+- inicio automático diferido cuando NVDA arranca dentro de la franja;
+- cancelación del inicio diferido mediante Detener;
+- todas las pruebas previas del motor, Input Lock, anuncios y capa de comandos.
+
+## Gestos
+
+No se cambió ningún gesto respecto de 0.3.2. El auditor AST de la skill v1.6 sobre `addon/` informa `clean` y reconoce:
+
+- `NVDA+Alt+E`;
+- `I`, `Shift+I`, `D`, `T`, `R` y `O` dentro de la capa.
+
+La auditoría runtime contra los complementos habilitados y `gestures.ini` reales debe hacerse dentro del NVDA del usuario.
+
+## Sintaxis y paquete
+
+- `py_compile` de todos los Python del complemento y pruebas: OK.
+- Integridad ZIP del `.nvda-addon`: OK.
+- `manifest.ini` en la raíz: OK.
+- documentación `doc/es/readme.html` y `doc/es/changelog.html`: incluida.
 
 ## Validación runtime
 
-El usuario confirmó que la versión 0.3.1 funciona en su NVDA real. La modificación específica de 0.3.2 todavía debe probarse en ese runtime; no se presenta la prueba estática como sustituto de esa comprobación.
+El usuario confirmó previamente el funcionamiento de la rama 0.3.x en su NVDA real. Las funciones nuevas de 0.4.0 (inicio automático y horario de suspensión) todavía requieren la prueba real en esa instalación. No se presenta la validación estática como sustituto de esa prueba.
 
 ## Compatibilidad NVDA
 
 - `minimumNVDAVersion = 2025.3.0`.
-- `lastTestedNVDAVersion = 2025.3.0` se mantiene conservador en el manifiesto.
-- Esta modificación no introduce APIs NVDA nuevas respecto de 0.3.1.
-
-## Paquete generado
-
-- `focusBreakTimer-0.3.2.nvda-addon`
-- SHA-256: `1fca70f46cf731da2a6ef43fd11333a6d1e3402297100edbc408aae85a499a68`
-- ZIP íntegro y con `manifest.ini`, código y documentación esperados.
+- `lastTestedNVDAVersion = 2025.3.0` se mantiene conservador.
+- 0.4.0 no introduce dependencias de terceros ni APIs privadas nuevas de NVDA.

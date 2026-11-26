@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from typing import Optional
 
 import addonHandler
@@ -20,7 +21,13 @@ from keyboardHandler import KeyboardInputGesture
 from logHandler import log
 from scriptHandler import script
 
-from .focusBreakTimerCore import FocusBreakEngine, Phase, TimerEvent
+from .focusBreakTimerCore import (
+    FocusBreakEngine,
+    Phase,
+    TimerEvent,
+    is_minute_in_daily_window,
+    minutes_from_hm,
+)
 
 addonHandler.initTranslation()
 
@@ -36,6 +43,10 @@ config.conf.spec[CONFIG_SECTION] = {
     "announceEverySeconds": "integer(default=300,min=0,max=86400)",
     "beeps": "boolean(default=true)",
     "lockDuringBreak": "boolean(default=true)",
+    "startOnNVDA": "boolean(default=false)",
+    "suspendScheduleEnabled": "boolean(default=false)",
+    "suspendFromMinutes": "integer(default=1320,min=0,max=1439)",
+    "suspendUntilMinutes": "integer(default=360,min=0,max=1439)",
 }
 
 
@@ -47,6 +58,17 @@ def _format_duration(seconds: int) -> str:
     if minutes:
         return _("{minutes} minutos").format(minutes=minutes)
     return _("{seconds} segundos").format(seconds=secs)
+
+
+def _format_clock_minutes(total_minutes: int) -> str:
+    total_minutes = int(total_minutes) % (24 * 60)
+    hour, minute = divmod(total_minutes, 60)
+    return f"{hour:02d}:{minute:02d}"
+
+
+def _local_minutes_now() -> int:
+    now = datetime.now()
+    return now.hour * 60 + now.minute
 
 
 class InputLockBridge:
@@ -248,13 +270,61 @@ class FocusBreakSettingsPanel(SettingsPanel):
         )
         self.beeps.SetValue(bool(conf["beeps"]))
 
+        self.startOnNVDA = helper.addItem(
+            wx.CheckBox(self, label=_("&Iniciar el temporizador al iniciar NVDA"))
+        )
+        self.startOnNVDA.SetValue(bool(conf.get("startOnNVDA", False)))
+
+        self.suspendScheduleEnabled = helper.addItem(
+            wx.CheckBox(self, label=_("&Suspender el temporizador automáticamente en un horario"))
+        )
+        self.suspendScheduleEnabled.SetValue(bool(conf.get("suspendScheduleEnabled", False)))
+        self.suspendScheduleEnabled.Bind(wx.EVT_CHECKBOX, self._onSuspendScheduleChanged)
+
+        suspend_from = int(conf.get("suspendFromMinutes", 22 * 60))
+        suspend_until = int(conf.get("suspendUntilMinutes", 6 * 60))
+        from_hour, from_minute = divmod(suspend_from, 60)
+        until_hour, until_minute = divmod(suspend_until, 60)
+
+        self.suspendFromHour = helper.addLabeledControl(
+            _("Suspender &desde, hora:"),
+            wx.SpinCtrl,
+            min=0,
+            max=23,
+            initial=from_hour,
+        )
+        self.suspendFromMinute = helper.addLabeledControl(
+            _("Suspender desde, &minutos:"),
+            wx.SpinCtrl,
+            min=0,
+            max=59,
+            initial=from_minute,
+        )
+        self.suspendUntilHour = helper.addLabeledControl(
+            _("Reanudar &a las, hora:"),
+            wx.SpinCtrl,
+            min=0,
+            max=23,
+            initial=until_hour,
+        )
+        self.suspendUntilMinute = helper.addLabeledControl(
+            _("Reanudar a las, m&inutos:"),
+            wx.SpinCtrl,
+            min=0,
+            max=59,
+            initial=until_minute,
+        )
+        self._updateSuspendScheduleControls()
+
         helper.addItem(
             wx.StaticText(
                 self,
                 label=_(
-                    "Los cambios se aplicarán la próxima vez que se inicie o reinicie el temporizador. "
-                    "Para usar Input Lock durante el descanso, su comando de alternar bloqueo debe tener "
-                    "un gesto de teclado asignado."
+                    "Los cambios de duración y ciclos se aplicarán la próxima vez que se inicie o reinicie "
+                    "el temporizador. El horario de suspensión se aplica automáticamente tras guardar. "
+                    "La opción de iniciar con NVDA tiene efecto en el próximo inicio de NVDA. Para usar "
+                    "Input Lock durante el descanso, su comando de alternar bloqueo debe tener un gesto "
+                    "de teclado asignado."
                 ),
             )
         )
@@ -273,6 +343,17 @@ class FocusBreakSettingsPanel(SettingsPanel):
     def _updateAnnounceControl(self):
         self.announceEveryMinutes.Enable(self.announceRemaining.GetValue())
 
+    def _onSuspendScheduleChanged(self, evt):
+        self._updateSuspendScheduleControls()
+        evt.Skip()
+
+    def _updateSuspendScheduleControls(self):
+        enabled = self.suspendScheduleEnabled.GetValue()
+        self.suspendFromHour.Enable(enabled)
+        self.suspendFromMinute.Enable(enabled)
+        self.suspendUntilHour.Enable(enabled)
+        self.suspendUntilMinute.Enable(enabled)
+
     def onSave(self):
         conf = config.conf[CONFIG_SECTION]
         conf["focusMinutes"] = self.focusMinutes.GetValue()
@@ -284,6 +365,16 @@ class FocusBreakSettingsPanel(SettingsPanel):
         conf["announceRemaining"] = self.announceRemaining.GetValue()
         conf["announceEverySeconds"] = self.announceEveryMinutes.GetValue() * 60
         conf["beeps"] = self.beeps.GetValue()
+        conf["startOnNVDA"] = self.startOnNVDA.GetValue()
+        conf["suspendScheduleEnabled"] = self.suspendScheduleEnabled.GetValue()
+        conf["suspendFromMinutes"] = minutes_from_hm(
+            self.suspendFromHour.GetValue(),
+            self.suspendFromMinute.GetValue(),
+        )
+        conf["suspendUntilMinutes"] = minutes_from_hm(
+            self.suspendUntilHour.GetValue(),
+            self.suspendUntilMinute.GetValue(),
+        )
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
@@ -298,9 +389,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self._inputLockToken = None
         self._lastAnnouncedRemaining: Optional[int] = None
         self._layerActive = False
+        self._pausedBySchedule = False
+        self._pendingStartupStart = bool(config.conf[CONFIG_SECTION].get("startOnNVDA", False))
+        self._scheduleWatchGeneration = 0
         self._bindBaseGesture()
         if FocusBreakSettingsPanel not in NVDASettingsDialog.categoryClasses:
             NVDASettingsDialog.categoryClasses.append(FocusBreakSettingsPanel)
+        self._startScheduleWatch()
 
     def _bindBaseGesture(self):
         self.bindGesture("kb:NVDA+alt+e", "timerLayer")
@@ -352,6 +447,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     def terminate(self):
         try:
+            self._stopScheduleWatch()
             self._stopTimerLoop()
             self._releaseOwnedInputLock()
         finally:
@@ -360,6 +456,71 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             except (ValueError, RuntimeError):
                 pass
             super().terminate()
+
+    def _startScheduleWatch(self):
+        self._scheduleWatchGeneration += 1
+        generation = self._scheduleWatchGeneration
+        core.callLater(500, self._onScheduleWatch, generation)
+
+    def _stopScheduleWatch(self):
+        self._scheduleWatchGeneration += 1
+
+    def _scheduleValues(self):
+        conf = config.conf[CONFIG_SECTION]
+        enabled = bool(conf.get("suspendScheduleEnabled", False))
+        start = int(conf.get("suspendFromMinutes", 22 * 60))
+        end = int(conf.get("suspendUntilMinutes", 6 * 60))
+        return enabled, start, end
+
+    def _isScheduleSuspendedNow(self) -> bool:
+        enabled, start, end = self._scheduleValues()
+        if not enabled:
+            return False
+        return is_minute_in_daily_window(_local_minutes_now(), start, end)
+
+    def _scheduleResumeLabel(self) -> str:
+        _, _, end = self._scheduleValues()
+        return _format_clock_minutes(end)
+
+    def _applyScheduleState(self):
+        suspended = self._isScheduleSuspendedNow()
+        if suspended:
+            if self._engine is not None and self._engine.phase in (Phase.FOCUS, Phase.BREAK):
+                # Pause the state machine without sending its generic pause event; this
+                # is a distinct automatic suspension with its own spoken message.
+                self._engine.pause(time.monotonic())
+                self._releaseOwnedInputLock()
+                self._pausedBySchedule = True
+                ui.message(
+                    _("Horario de suspensión iniciado. Temporizador suspendido hasta las {time}.").format(
+                        time=self._scheduleResumeLabel()
+                    )
+                )
+            return True
+
+        if self._pausedBySchedule:
+            self._pausedBySchedule = False
+            if self._engine is not None and self._engine.phase == Phase.PAUSED:
+                for event in self._engine.resume(time.monotonic()):
+                    self._processEvent(event)
+            return False
+
+        if self._pendingStartupStart:
+            # If the preference was disabled after NVDA started but before a deferred
+            # start could happen, honor the new preference and cancel the pending start.
+            if bool(config.conf[CONFIG_SECTION].get("startOnNVDA", False)):
+                self._pendingStartupStart = False
+                self._startFreshTimer(respectSchedule=False)
+            else:
+                self._pendingStartupStart = False
+        return False
+
+    def _onScheduleWatch(self, generation: int):
+        if generation != self._scheduleWatchGeneration:
+            return
+        self._applyScheduleState()
+        if generation == self._scheduleWatchGeneration:
+            core.callLater(1000, self._onScheduleWatch, generation)
 
     def _newEngine(self) -> FocusBreakEngine:
         conf = config.conf[CONFIG_SECTION]
@@ -436,9 +597,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             self._releaseOwnedInputLock()
             self._beep("break_done")
         elif event.kind == "completed":
+            self._pausedBySchedule = False
             self._stopTimerLoop()
             ui.message(_("Temporizador completado."))
         elif event.kind == "stopped":
+            self._pausedBySchedule = False
             self._releaseOwnedInputLock()
             self._stopTimerLoop()
             ui.message(_("Temporizador detenido."))
@@ -453,6 +616,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     def _onTimer(self, generation: int):
         if not self._loopActive or generation != self._loopGeneration or self._engine is None:
+            return
+        # Check the wall-clock suspension before advancing the state machine so a
+        # boundary such as 22:00 cannot start a break/lock just before the schedule
+        # watcher gets its next turn.
+        if self._applyScheduleState():
+            if self._loopActive and generation == self._loopGeneration:
+                core.callLater(500, self._onTimer, generation)
             return
         now = time.monotonic()
 
@@ -481,13 +651,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         if self._loopActive and generation == self._loopGeneration:
             core.callLater(500, self._onTimer, generation)
 
-    def _startFreshTimer(self):
+    def _startFreshTimer(self, respectSchedule: bool = True) -> bool:
+        if respectSchedule and self._isScheduleSuspendedNow():
+            ui.message(
+                _("El temporizador está suspendido por horario hasta las {time}.").format(
+                    time=self._scheduleResumeLabel()
+                )
+            )
+            return False
+        self._pendingStartupStart = False
+        self._pausedBySchedule = False
         self._releaseOwnedInputLock()
         self._stopTimerLoop()
         self._engine = self._newEngine()
         for event in self._engine.start(time.monotonic()):
             self._processEvent(event)
         self._startTimerLoop()
+        return True
 
     @script(description=_("Inicia el temporizador de enfoque"), category=CATEGORY)
     def script_startTimer(self, gesture):
@@ -502,6 +682,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     @script(description=_("Pausa o reanuda el temporizador de enfoque"), category=CATEGORY)
     def script_pauseResume(self, gesture):
+        if self._pausedBySchedule or self._isScheduleSuspendedNow():
+            ui.message(
+                _("El temporizador está suspendido por horario hasta las {time}.").format(
+                    time=self._scheduleResumeLabel()
+                )
+            )
+            return
         if self._engine is None or self._engine.phase == Phase.STOPPED:
             ui.message(_("El temporizador no está en ejecución."))
             return
@@ -512,6 +699,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     @script(description=_("Detiene el temporizador de enfoque"), category=CATEGORY)
     def script_stopTimer(self, gesture):
+        self._pendingStartupStart = False
+        self._pausedBySchedule = False
         if self._engine is None or self._engine.phase == Phase.STOPPED:
             self._releaseOwnedInputLock()
             ui.message(_("El temporizador ya está detenido."))
@@ -561,12 +750,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     @script(description=_("Informa el estado y el tiempo restante del temporizador"), category=CATEGORY)
     def script_reportStatus(self, gesture):
         if self._engine is None or self._engine.phase == Phase.STOPPED:
-            ui.message(_("Temporizador detenido."))
+            if self._pendingStartupStart and self._isScheduleSuspendedNow():
+                ui.message(
+                    _("Temporizador pendiente de inicio. Horario de suspensión activo hasta las {time}.").format(
+                        time=self._scheduleResumeLabel()
+                    )
+                )
+            else:
+                ui.message(_("Temporizador detenido."))
             return
         snap = self._engine.snapshot(time.monotonic())
         phase = snap.paused_from if snap.phase == Phase.PAUSED else snap.phase
         phase_text = _("enfoque") if phase == Phase.FOCUS else _("descanso")
-        paused = _("Pausado. ") if snap.phase == Phase.PAUSED else ""
+        if self._pausedBySchedule:
+            paused = _("Suspendido por horario hasta las {time}. ").format(time=self._scheduleResumeLabel())
+        else:
+            paused = _("Pausado. ") if snap.phase == Phase.PAUSED else ""
         cycles = _("ciclo {cycle}").format(cycle=snap.cycle)
         if snap.cycles_target:
             cycles = _("ciclo {cycle} de {total}").format(cycle=snap.cycle, total=snap.cycles_target)
